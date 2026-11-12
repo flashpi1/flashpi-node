@@ -3,6 +3,40 @@
 Settled decisions about @flashpi/node, newest first. Each one was taken with the Flashpi
 product owner.
 
+## 2026-11-12: after the first review
+
+An adversarial review (five lenses, every finding checked by a second reviewer) confirmed 25
+findings; all are fixed, each with a regression test that fails without the fix. The owner
+decided three of them:
+
+- **Waiting for an attempt still in progress.** When a retry is answered 409
+  `idempotency_key_in_progress`, an earlier attempt of the same call is still running on the API
+  (typically a sync issue whose connection dropped). The SDK keeps asking with the same key,
+  waiting 1, 2, 4 and then 5 s, until the call's timeout budget (60 s, or the sync wait plus 15 s)
+  is spent. These checks do not count as retries. On the first attempt the normal retry rules
+  apply, since another process holds the caller's key.
+- **One copy for import and require.** The `bun` and `module-sync` export conditions point
+  `require()` at the ESM build on Bun and Node.js 22.12+, so an app that loads the SDK both ways
+  shares one set of classes and `instanceof` works. The CommonJS build stays for Node.js
+  22.0-22.11 and older tools.
+- **Simulated DOMs.** The browser guard only refuses when there is no Node.js, Bun or Deno
+  runtime, so tests with jsdom or happy-dom work.
+
+Fixed without changing a decision: every POST error carries the `idempotencyKey` it used; an
+`Idempotency-Key` in the request's `headers` is honored (and refused in `defaultHeaders`); the JSON
+body is serialized once for all attempts; the request `language` wins over a client
+`Accept-Language` header; request `timeout` and `maxRetries` are validated and timeouts are
+capped at 2147483647 ms (the `setTimeout` limit); ids `.` and `..` are refused (URL parsing would
+send the request to the parent resource); `documents.pdf()` returns `Uint8Array<ArrayBuffer>`, so
+`new Response(pdf)` compiles with the DOM library; optional members accept `undefined` under
+`exactOptionalPropertyTypes`; Deno without `--allow-env` gets a message that says so; webhooks
+compute the HMAC once whatever the number of signatures, validate `tolerance` and `now`
+(TypeError), and refuse keys outside 24 to 64 bytes as `invalid_secret`; the READMEs and JSDoc now
+match the API on onboarding completion (the prefill is not applied by the API), renewals (an
+onboarding, not a per-mode upload), certificate statuses and issuer deletion. `pnpm pack:check`
+checks what npm would publish, and `tsconfig.consumer.json` compiles the SDK as a DOM-library
+consumer with `exactOptionalPropertyTypes`.
+
 ## 2026-11-12: the first SDK
 
 The Node.js/TypeScript SDK is the first of the official SDKs (then Python, PHP with Laravel,

@@ -17,13 +17,14 @@ pnpm install
 Run the same checks as CI before every commit:
 
 ```bash
-pnpm openapi:check && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:cov && pnpm build && pnpm test:runtimes
+pnpm openapi:check && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:cov && pnpm build && pnpm pack:check && pnpm test:runtimes
 ```
 
 - `pnpm build` writes `dist/` (ESM and CommonJS with their declarations) and runs publint and
   attw on it.
-- `pnpm test:runtimes` loads `dist/` on Node.js (ESM and CommonJS) and on Cloudflare Workers
-  (workerd through Miniflare). CI also runs it on Bun and Deno:
+- `pnpm pack:check` lists what `npm publish` would ship and fails on anything missing or extra.
+- `pnpm test:runtimes` loads `dist/` on Node.js (ESM, CommonJS, and both at once sharing one
+  copy) and on Cloudflare Workers (workerd through Miniflare). CI also runs it on Bun and Deno:
   `bun test/runtimes/esm.mjs`, `deno run test/runtimes/esm.mjs`.
 - `pnpm test:live` calls the real API in test mode. It needs `FLASHPI_TEST_API_KEY` (an
   `fp_test_` key, read_write) and `FLASHPI_DEMO_ISSUER_ID`, and issues one test invoice on the
@@ -39,7 +40,9 @@ pnpm openapi:check && pnpm lint && pnpm format:check && pnpm typecheck && pnpm t
   Blob, AbortSignal, Web Crypto, TextEncoder), so it runs on Node.js 22+, Bun, Deno and
   Cloudflare Workers. ESLint forbids `node:` imports and `Buffer` in `src/`.
 - Every exported declaration has an explicit type (`isolatedDeclarations` in
-  `tsconfig.build.json`).
+  `tsconfig.build.json`). `pnpm typecheck` also compiles `test/types/consumer.ts` the way a
+  consumer project would (`tsconfig.consumer.json`: the DOM library instead of @types/node, and
+  `exactOptionalPropertyTypes`): optional members of hand-written options are `?: T | undefined`.
 - Resource methods mirror the API: `create`, `list`, `get`, `update`, `delete`, then actions
   named after the operation (`sendEmail`, `rotateSecret`, `replay`, ...). Path ids come first,
   then the body or the filters, then `RequestOptions`.
@@ -74,7 +77,7 @@ npm can only trust a publisher for a package that already exists, so 0.1.0 is pu
 hand by a maintainer of the `@flashpi` npm organization, from a clean checkout of its tag:
 
 ```bash
-pnpm install --frozen-lockfile && pnpm build
+pnpm install --frozen-lockfile && pnpm build && pnpm pack:check
 npm publish --access public
 ```
 

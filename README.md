@@ -159,14 +159,22 @@ Algunos errores traen datos extra en `error.problem`, por ejemplo `documentId`, 
 
 El SDK reintenta hasta 2 veces, con espera creciente, los errores de red, los tiempos agotados,
 las respuestas 408, 429 (si piden esperar 60 s o menos) y 5xx. Cada POST lleva un
-`Idempotency-Key` que se repite en sus reintentos, así que la API nunca emite dos veces. Si un
-reintento descubre que el primer intento sí creó el documento, el SDK devuelve ese documento.
+`Idempotency-Key` que se repite en sus reintentos, así que la API nunca emite dos veces:
+
+- Si un reintento descubre que el primer intento sí creó el documento, el SDK devuelve ese
+  documento.
+- Si el primer intento sigue en curso en la API (por ejemplo, se cortó la conexión mientras
+  esperaba al SRI), el SDK espera a que termine con la misma clave, hasta el tiempo límite de la
+  llamada, sin gastar reintentos.
 
 Para usar tu propia clave (por ejemplo el id de tu pedido), pásala en las opciones:
 
 ```ts
 await flashpi.invoices.create(body, { idempotencyKey: `pedido-${order.id}` })
 ```
+
+Si una emisión falla igual, el error trae la clave que usó: reintentar más tarde con
+`{ idempotencyKey: error.idempotencyKey }` devuelve el mismo documento en vez de emitir otro.
 
 Los límites diarios (como la cuota del emisor demo) no se reintentan: se lanzan como
 `RateLimitError` con `retryAfter` en segundos.
@@ -221,10 +229,12 @@ y pide el evento con `flashpi.events.get(event.id)`.
 
 Estas operaciones necesitan una clave de toda la cuenta con acceso de lectura y escritura.
 
+Un emisor nace de su firma electrónica (.p12): Flashpi la verifica, lee el RUC y consulta al SRI,
+y te devuelve un `prefill` con lo que encontró para que armes el emisor.
+
 ```ts
 import { readFile } from 'node:fs/promises'
 
-// Crear un emisor a partir de su firma electrónica (.p12)
 let onboarding = await flashpi.issuerOnboardings.create({
   file: await readFile('firma.p12'),
   password: process.env.P12_PASSWORD!,
@@ -235,19 +245,35 @@ while (onboarding.status === 'verifying') {
 }
 if (onboarding.status !== 'ready')
   throw new Error(onboarding.rejection?.message ?? onboarding.status)
-// Revisa onboarding.prefill (datos del SRI). Si rucNeedsConfirmation es true, envía { ruc }.
-const { issuer } = await flashpi.issuerOnboardings.complete(onboarding.id)
 
-// Renovar el certificado de un emisor
-await flashpi.issuers.certificates.upload(issuer.id, {
-  file: await readFile('firma-nueva.p12'),
-  password: process.env.P12_PASSWORD!,
-})
+const { prefill } = onboarding
+const { issuer } = onboarding.existingIssuer
+  ? // Ya tienes ese RUC: el certificado se agrega a ese emisor (una renovación).
+    await flashpi.issuerOnboardings.complete(onboarding.id)
+  : // Un RUC nuevo: tú confirmas los datos del emisor, partiendo del prefill.
+    await flashpi.issuerOnboardings.complete(onboarding.id, {
+      legalName: prefill?.legalName ?? 'MI EMPRESA S.A.',
+      headOfficeAddress: prefill?.headOfficeAddress ?? 'Av. Amazonas N24-100, Quito',
+      taxProfile: {
+        keepsAccounting: prefill?.taxProfile.keepsAccounting ?? false,
+        rimpeRegime:
+          prefill?.taxProfile.rimpeRegime === 'general'
+            ? null
+            : (prefill?.taxProfile.rimpeRegime ?? null),
+        // Si es contribuyente especial o agente de retención, agrega sus números de resolución.
+      },
+      // Si onboarding.rucNeedsConfirmation es true, envía también { ruc }.
+    })
 
 for await (const establishment of flashpi.issuers.establishments.list(issuer.id)) {
   console.log(establishment.code)
 }
 ```
+
+Para **renovar la firma** de un emisor, para pruebas y producción a la vez, repite el mismo
+flujo con el .p12 nuevo: Flashpi reconoce el RUC (`existingIssuer`) y `complete()` sin datos
+agrega el certificado. `flashpi.issuers.certificates.upload(issuerId, { file, password })`, en
+cambio, sube un certificado solo para el modo de la clave que usas (pruebas o producción).
 
 ## Opciones
 
@@ -273,7 +299,9 @@ const { data, response, requestId } = await flashpi.documents.get(id).withRespon
 ## Solo en el servidor
 
 Tu clave de API es secreta. El SDK se niega a correr en un navegador; llama a Flashpi desde tu
-backend.
+backend. Las pruebas con un DOM simulado (jsdom o happy-dom) sobre Node.js sí funcionan.
+
+En Deno, el SDK lee `FLASHPI_API_KEY` solo con permiso: `deno run --allow-env=FLASHPI_API_KEY`.
 
 ## Licencia
 

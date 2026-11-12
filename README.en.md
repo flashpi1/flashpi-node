@@ -157,14 +157,22 @@ Some errors carry extra members in `error.problem`, such as `documentId`, `limit
 
 The SDK retries network errors, timeouts, and 408, 429 (when asked to wait 60 s or less) and
 5xx answers up to 2 times, with growing waits. Every POST carries an `Idempotency-Key` that its
-retries repeat, so the API never issues twice. When a retry finds that the first attempt did
-create the document, the SDK returns that document.
+retries repeat, so the API never issues twice:
+
+- When a retry finds that the first attempt did create the document, the SDK returns that
+  document.
+- When the first attempt is still running on the API (for example, the connection dropped while
+  it waited for the SRI), the SDK waits for it with the same key, up to the call's time limit,
+  without using up retries.
 
 To use your own key (for example your order id), pass it in the options:
 
 ```ts
 await flashpi.invoices.create(body, { idempotencyKey: `order-${order.id}` })
 ```
+
+If issuing still fails, the error carries the key it used: trying again later with
+`{ idempotencyKey: error.idempotencyKey }` returns the same document instead of issuing another.
 
 Daily limits (such as the demo issuer's quota) are not retried: they are thrown as a
 `RateLimitError` with `retryAfter` in seconds.
@@ -219,10 +227,12 @@ Flashpi signs with both the new and the previous secret, so either works. If the
 
 These operations need an account-wide key with read and write access.
 
+An issuer starts from its electronic signature (.p12): Flashpi checks it, reads the RUC and asks
+the SRI, and returns a `prefill` with what it found so you can build the issuer.
+
 ```ts
 import { readFile } from 'node:fs/promises'
 
-// Create an issuer from its electronic signature (.p12)
 let onboarding = await flashpi.issuerOnboardings.create({
   file: await readFile('firma.p12'),
   password: process.env.P12_PASSWORD!,
@@ -233,19 +243,35 @@ while (onboarding.status === 'verifying') {
 }
 if (onboarding.status !== 'ready')
   throw new Error(onboarding.rejection?.message ?? onboarding.status)
-// Review onboarding.prefill (SRI data). If rucNeedsConfirmation is true, send { ruc }.
-const { issuer } = await flashpi.issuerOnboardings.complete(onboarding.id)
 
-// Renew an issuer's certificate
-await flashpi.issuers.certificates.upload(issuer.id, {
-  file: await readFile('firma-nueva.p12'),
-  password: process.env.P12_PASSWORD!,
-})
+const { prefill } = onboarding
+const { issuer } = onboarding.existingIssuer
+  ? // You already have that RUC: the certificate is added to that issuer (a renewal).
+    await flashpi.issuerOnboardings.complete(onboarding.id)
+  : // A new RUC: you confirm the issuer's data, starting from the prefill.
+    await flashpi.issuerOnboardings.complete(onboarding.id, {
+      legalName: prefill?.legalName ?? 'MY COMPANY S.A.',
+      headOfficeAddress: prefill?.headOfficeAddress ?? 'Av. Amazonas N24-100, Quito',
+      taxProfile: {
+        keepsAccounting: prefill?.taxProfile.keepsAccounting ?? false,
+        rimpeRegime:
+          prefill?.taxProfile.rimpeRegime === 'general'
+            ? null
+            : (prefill?.taxProfile.rimpeRegime ?? null),
+        // For a special taxpayer or a withholding agent, add their resolution numbers.
+      },
+      // When onboarding.rucNeedsConfirmation is true, send { ruc } too.
+    })
 
 for await (const establishment of flashpi.issuers.establishments.list(issuer.id)) {
   console.log(establishment.code)
 }
 ```
+
+To **renew an issuer's signature** for test and live mode at once, run the same flow with the
+new .p12: Flashpi recognizes the RUC (`existingIssuer`) and `complete()` with no data adds the
+certificate. `flashpi.issuers.certificates.upload(issuerId, { file, password })`, instead,
+uploads a certificate for the mode of the key you use only (test or live).
 
 ## Options
 
@@ -271,6 +297,9 @@ const { data, response, requestId } = await flashpi.documents.get(id).withRespon
 ## Servers only
 
 Your API key is a secret. The SDK refuses to run in a browser; call Flashpi from your backend.
+Tests with a simulated DOM (jsdom or happy-dom) on Node.js work.
+
+On Deno, the SDK reads `FLASHPI_API_KEY` only with permission: `deno run --allow-env=FLASHPI_API_KEY`.
 
 ## License
 
