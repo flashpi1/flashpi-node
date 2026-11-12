@@ -92,13 +92,16 @@ and .NET), and the others follow its design.
   receiver).
 - **Types.** Generated with openapi-typescript from the public OpenAPI document
   (https://flashpi.com.ec/docs/openapi.json, since the API repository is private), committed
-  with a copy of the document; a daily workflow syncs them. Hand-written where the document
-  falls short: events typed by `type` (`DocumentEvent`, `CertificateEvent`, `AccountEvent`,
-  the verification event and thin events), `Problem` with extension members, `DocumentXml`.
-- **Known gaps in the OpenAPI document**, to fix in flashpi-api later (owner's choice): `limit`
-  typed as number instead of integer, `waitTimeoutSeconds` maximum 60 against 30 at runtime,
-  undeclared 413, 429 and 503 answers and response headers, console-only codes in `ErrorCode`,
-  `Event.data` not discriminated, `ProblemDetails` without extension members.
+  with a copy of the document; a daily workflow syncs them. Hand-written only where the SDK
+  adds something: the webhook bodies (`WebhookEvent`, `ThinWebhookEvent`), the open code
+  unions (`ApiErrorCode`, `ApiFieldErrorCode`, so a code added later still compiles), list
+  filters, `CertificateUpload` and `DocumentXml`.
+- **The OpenAPI document's gaps were fixed in the API** (flashpi1/flashpi-api#13, deployed
+  2026-11-12, owner's choice to fix them apart): integer `limit`, `waitTimeoutSeconds` 1 to 30,
+  the 413, 415, 429 and 503 answers and the headers, `ErrorCode` limited to what `/v1` answers,
+  `Event` as a union discriminated by `type`, and the `ProblemDetails` extension members. The
+  SDK then dropped its hand-written event and problem types for the generated ones, and widened
+  the now enumerated `FieldError.code` to an open union like `ErrorCode`.
 - **Tooling.** TypeScript 6 (TypeScript 7 breaks openapi-typescript and typescript-eslint),
   tsdown for the dual ESM/CommonJS build with publint and attw, Vitest, release-please
   (Conventional Commits) instead of changesets, and tsdown instead of tsup, which is no longer
