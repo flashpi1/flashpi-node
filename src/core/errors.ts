@@ -15,6 +15,12 @@ export type Problem = ProblemDetails & Record<string, unknown>
 /** Every error this package throws extends this class. */
 export class FlashpiError extends Error {
   override readonly name: string = 'FlashpiError'
+  /**
+   * The Idempotency-Key a failed POST used (the caller's or the one the SDK made). To try the
+   * same operation again later without issuing twice, pass it back:
+   * `create(body, { idempotencyKey: error.idempotencyKey })`.
+   */
+  idempotencyKey: string | undefined
 }
 
 /**

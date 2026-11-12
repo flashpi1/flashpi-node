@@ -106,8 +106,8 @@ export class Documents extends APIResource {
    * The RIDE (the printable PDF) of an authorized document. Throws a ConflictError with code
    * `ride_not_available` while it is still being generated.
    */
-  pdf(documentId: string, options?: RequestOptions): APIPromise<Uint8Array> {
-    return this._call<Uint8Array>({
+  pdf(documentId: string, options?: RequestOptions): APIPromise<Uint8Array<ArrayBuffer>> {
+    return this._call<Uint8Array<ArrayBuffer>>({
       method: 'GET',
       path: pathOf`/v1/documents/${documentId}/pdf`,
       accept: 'application/pdf, application/problem+json',

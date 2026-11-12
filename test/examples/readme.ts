@@ -7,6 +7,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import {
   APIError,
   Flashpi,
+  FlashpiError,
   type ThinWebhookEvent,
   UnprocessableEntityError,
   unwrapWebhook,
@@ -111,15 +112,42 @@ export async function issuers(flashpi: Flashpi): Promise<void> {
   if (onboarding.status !== 'ready') {
     throw new Error(onboarding.rejection?.message ?? onboarding.status)
   }
-  const { issuer } = await flashpi.issuerOnboardings.complete(onboarding.id)
+
+  const { prefill } = onboarding
+  const { issuer } = onboarding.existingIssuer
+    ? await flashpi.issuerOnboardings.complete(onboarding.id)
+    : await flashpi.issuerOnboardings.complete(onboarding.id, {
+        legalName: prefill?.legalName ?? 'MI EMPRESA S.A.',
+        headOfficeAddress: prefill?.headOfficeAddress ?? 'Av. Amazonas N24-100, Quito',
+        taxProfile: {
+          keepsAccounting: prefill?.taxProfile.keepsAccounting ?? false,
+          rimpeRegime:
+            prefill?.taxProfile.rimpeRegime === 'general'
+              ? null
+              : (prefill?.taxProfile.rimpeRegime ?? null),
+        },
+      })
+
+  for await (const establishment of flashpi.issuers.establishments.list(issuer.id)) {
+    console.log(establishment.code)
+  }
 
   await flashpi.issuers.certificates.upload(issuer.id, {
     file: await readFile('firma-nueva.p12'),
     password: process.env.P12_PASSWORD ?? '',
   })
+}
 
-  for await (const establishment of flashpi.issuers.establishments.list(issuer.id)) {
-    console.log(establishment.code)
+export async function retryLater(
+  flashpi: Flashpi,
+  body: Parameters<Flashpi['invoices']['create']>[0],
+): Promise<void> {
+  try {
+    await flashpi.invoices.create(body)
+  } catch (error) {
+    if (error instanceof APIError || error instanceof FlashpiError) {
+      await flashpi.invoices.create(body, { idempotencyKey: error.idempotencyKey })
+    }
   }
 }
 

@@ -12,15 +12,19 @@ export type WebhookPayload = string | Uint8Array | ArrayBuffer
 
 export interface WebhookVerifyOptions {
   /** Largest gap, in seconds, between `webhook-timestamp` and now (default 300). */
-  tolerance?: number
+  tolerance?: number | undefined
   /** The current time, for tests (a Date or Unix milliseconds). */
-  now?: Date | number
+  now?: Date | number | undefined
 }
 
 /** Default largest gap between a webhook's timestamp and the receiver's clock. */
 export const WEBHOOK_TOLERANCE_SECONDS = 300
 
 const SECRET_PREFIX = 'whsec_'
+/** Key sizes of a Standard Webhooks secret (Flashpi makes 32-byte keys). */
+const MIN_SECRET_BYTES = 24
+const MAX_SECRET_BYTES = 64
+const SIGNATURE_BYTES = 32
 const encoder = new TextEncoder()
 
 /**
@@ -36,6 +40,8 @@ export async function verifyWebhookSignature(
   secret: string,
   options: WebhookVerifyOptions = {},
 ): Promise<void> {
+  const { tolerance, nowMs } = verifyOptions(options)
+  const keyBytes = secretBytes(secret)
   const id = header(headers, 'webhook-id')
   const timestamp = header(headers, 'webhook-timestamp')
   const signatures = header(headers, 'webhook-signature')
@@ -48,9 +54,8 @@ export async function verifyWebhookSignature(
   if (!/^\d{1,12}$/.test(timestamp)) {
     throw new WebhookVerificationError('invalid_timestamp', 'The webhook-timestamp is not valid')
   }
-  const tolerance = options.tolerance ?? WEBHOOK_TOLERANCE_SECONDS
-  const nowSeconds = Math.floor(Number(options.now ?? Date.now()) / 1_000)
-  if (Math.abs(nowSeconds - Number(timestamp)) > tolerance) {
+  // Written so that anything unexpected fails closed.
+  if (!(Math.abs(Math.floor(nowMs / 1_000) - Number(timestamp)) <= tolerance)) {
     throw new WebhookVerificationError(
       'timestamp_out_of_range',
       `The webhook-timestamp is more than ${tolerance} seconds away from now`,
@@ -59,19 +64,19 @@ export async function verifyWebhookSignature(
 
   const key = await crypto.subtle.importKey(
     'raw',
-    secretBytes(secret),
+    keyBytes,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
-    ['verify'],
+    ['sign'],
   )
   const signed = concat(encoder.encode(`${id}.${timestamp}.`), payloadBytes(payload))
+  // One HMAC per request, however many signatures the header lists.
+  const expected = new Uint8Array(await crypto.subtle.sign('HMAC', key, signed))
   for (const entry of signatures.split(' ')) {
     const comma = entry.indexOf(',')
     if (comma === -1 || entry.slice(0, comma) !== 'v1') continue
     const signature = decodeBase64(entry.slice(comma + 1))
-    if (signature?.length !== 32) continue
-    // Web Crypto compares in constant time.
-    if (await crypto.subtle.verify('HMAC', key, signature, signed)) return
+    if (signature?.length === SIGNATURE_BYTES && equalBytes(signature, expected)) return
   }
   throw new WebhookVerificationError(
     'no_matching_signature',
@@ -84,7 +89,7 @@ export async function verifyWebhookSignature(
  * `type`. Endpoints in thin mode receive no `data`: use `unwrapWebhook<ThinWebhookEvent>(...)`.
  *
  * ```ts
- * const event = await unwrapWebhook(rawBody, req.headers, process.env.FLASHPI_WEBHOOK_SECRET)
+ * const event = await unwrapWebhook(rawBody, req.headers, process.env.FLASHPI_WEBHOOK_SECRET!)
  * if (event.type === 'webhook_endpoint.verification') {
  *   return res.json({ challenge: event.data.challenge })
  * }
@@ -159,7 +164,36 @@ function secretBytes(secret: string): Uint8Array<ArrayBuffer> {
       'The webhook secret is not a whsec_ secret (base64 after the prefix)',
     )
   }
+  if (bytes.length < MIN_SECRET_BYTES || bytes.length > MAX_SECRET_BYTES) {
+    throw new WebhookVerificationError(
+      'invalid_secret',
+      'The webhook secret is not a complete whsec_ secret: copy it again from the console or webhookEndpoints.getSecret()',
+    )
+  }
   return bytes
+}
+
+/** The checked tolerance and clock. Bad values are programming errors, so they throw TypeError. */
+function verifyOptions(options: WebhookVerifyOptions): { tolerance: number; nowMs: number } {
+  const tolerance = options.tolerance ?? WEBHOOK_TOLERANCE_SECONDS
+  if (typeof tolerance !== 'number' || !Number.isFinite(tolerance) || tolerance < 0) {
+    throw new TypeError('tolerance must be a number of seconds, 0 or more')
+  }
+  const nowMs = Number(options.now ?? Date.now())
+  if (!Number.isFinite(nowMs)) {
+    throw new TypeError('now must be a valid Date or a number of Unix milliseconds')
+  }
+  return { tolerance, nowMs }
+}
+
+/** Compares two byte arrays of the same length in constant time. */
+function equalBytes(first: Uint8Array, second: Uint8Array): boolean {
+  if (first.length !== second.length) return false
+  let difference = 0
+  for (let index = 0; index < first.length; index++) {
+    difference |= (first[index] ?? 0) ^ (second[index] ?? 0)
+  }
+  return difference === 0
 }
 
 function payloadBytes(payload: WebhookPayload): Uint8Array {

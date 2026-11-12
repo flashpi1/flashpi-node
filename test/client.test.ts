@@ -48,12 +48,6 @@ describe('new Flashpi()', () => {
     expect(() => new Flashpi('sk_test_123')).toThrow(FlashpiError)
   })
 
-  it('refuses to run in a browser', () => {
-    vi.stubGlobal('window', {})
-    vi.stubGlobal('document', {})
-    expect(() => new Flashpi(TEST_KEY)).toThrow(/runs on servers only/)
-  })
-
   it('validates timeout and maxRetries', () => {
     expect(() => new Flashpi(TEST_KEY, { timeout: 0 })).toThrow(/timeout/)
     expect(() => new Flashpi(TEST_KEY, { timeout: Number.NaN })).toThrow(/timeout/)

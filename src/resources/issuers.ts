@@ -50,7 +50,12 @@ export class Issuers extends APIResource {
     return this._patch(pathOf`/v1/issuers/${issuerId}`, body, options)
   }
 
-  /** Deletes an issuer that has issued no documents (409 `resource_in_use` otherwise). */
+  /**
+   * Deletes an issuer that has no documents and no certificates, with its establishments,
+   * emission points and issuer-scoped API keys. Otherwise 409 `resource_in_use`: certificates
+   * cannot be deleted, so an issuer that ever had a .p12 (one from `issuerOnboardings` too)
+   * stays.
+   */
   delete(issuerId: string, options?: RequestOptions): APIPromise<void> {
     return this._delete(pathOf`/v1/issuers/${issuerId}`, options)
   }
@@ -161,8 +166,13 @@ export class EmissionPoints extends APIResource {
 /** The .p12 certificates (firmas electrónicas) of an issuer. */
 export class Certificates extends APIResource {
   /**
-   * Uploads a .p12 for the issuer. Flashpi checks it in the background: the certificate starts
-   * `pending` and a `certificate.verified` (or `certificate.blocked`) event follows.
+   * Uploads a .p12 for the issuer, for the mode of the API key only (test or live). To renew
+   * the certificate of both modes, start an `issuerOnboardings` with it instead.
+   *
+   * Flashpi checks it in the background: the certificate starts `processing`, then becomes
+   * `accepted` (event `certificate.verified`, or `certificate.pending` while its revocation
+   * status cannot be checked) or `rejected` (no event: follow it with `get()` and read
+   * `rejection`).
    */
   upload(
     issuerId: string,

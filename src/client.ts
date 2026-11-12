@@ -1,5 +1,6 @@
 import { FlashpiError } from './core/errors'
 import { type Fetch, HttpClient, type Language } from './core/http'
+import { validRetries, validTimeout } from './core/validate'
 import { Documents, DocumentIssuer } from './resources/documents'
 import type {
   CreditNotes,
@@ -20,19 +21,19 @@ import { Webhooks } from './webhooks'
 /** Settings of a Flashpi client. */
 export interface ClientOptions {
   /** The API key (`fp_test_...` or `fp_live_...`). Defaults to the FLASHPI_API_KEY variable. */
-  apiKey?: string
+  apiKey?: string | undefined
   /** Milliseconds to wait for each attempt of a request (default 60 000). */
-  timeout?: number
+  timeout?: number | undefined
   /** Retries after network errors, timeouts, 429 and 5xx (default 2; 0 turns them off). */
-  maxRetries?: number
+  maxRetries?: number | undefined
   /** Language of the API's messages: `en` (default) or `es`. Error codes do not change. */
-  language?: Language
+  language?: Language | undefined
   /** The API's address (default https://api.flashpi.com.ec). */
-  baseUrl?: string
+  baseUrl?: string | undefined
   /** A `fetch` implementation, for proxies or tests (default: the runtime's `fetch`). */
-  fetch?: Fetch
-  /** Headers sent with every request. */
-  defaultHeaders?: Record<string, string>
+  fetch?: Fetch | undefined
+  /** Headers sent with every request (not `Idempotency-Key`: that one is per request). */
+  defaultHeaders?: Record<string, string> | undefined
 }
 
 export const DEFAULT_BASE_URL = 'https://api.flashpi.com.ec'
@@ -91,8 +92,15 @@ export class Flashpi {
       typeof apiKeyOrOptions === 'object'
         ? apiKeyOrOptions
         : { ...maybeOptions, apiKey: apiKeyOrOptions ?? maybeOptions.apiKey }
-    const apiKey = (options.apiKey ?? readEnv('FLASHPI_API_KEY'))?.trim()
-    this.environment = environmentOf(apiKey)
+    const fromEnv = options.apiKey === undefined ? readEnv('FLASHPI_API_KEY') : undefined
+    const apiKey = (options.apiKey ?? fromEnv?.value)?.trim()
+    this.environment = environmentOf(apiKey, fromEnv?.denied)
+    const defaultHeaders = options.defaultHeaders ?? {}
+    if (new Headers(defaultHeaders).has('idempotency-key')) {
+      throw new FlashpiError(
+        'defaultHeaders cannot carry an Idempotency-Key: it must be unique per operation. Pass { idempotencyKey } to each create() instead',
+      )
+    }
 
     // Looked up on every call, so tools that patch the global fetch later (mocks) still work.
     const fetchImplementation: Fetch =
@@ -100,11 +108,11 @@ export class Flashpi {
     const http = new HttpClient({
       apiKey: apiKey ?? '',
       baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
-      timeout: positive('timeout', options.timeout ?? DEFAULT_TIMEOUT_MS),
-      maxRetries: nonNegativeInteger('maxRetries', options.maxRetries ?? DEFAULT_MAX_RETRIES),
+      timeout: validTimeout('timeout', options.timeout ?? DEFAULT_TIMEOUT_MS),
+      maxRetries: validRetries('maxRetries', options.maxRetries ?? DEFAULT_MAX_RETRIES),
       language: options.language,
       fetch: fetchImplementation,
-      defaultHeaders: options.defaultHeaders ?? {},
+      defaultHeaders,
     })
 
     this.invoices = new DocumentIssuer(http, '/v1/invoices')
@@ -123,8 +131,14 @@ export class Flashpi {
   }
 }
 
-function environmentOf(apiKey: string | undefined): Environment {
+function environmentOf(apiKey: string | undefined, envDenied: unknown): Environment {
   if (!apiKey) {
+    if (envDenied !== undefined) {
+      throw new FlashpiError(
+        'FLASHPI_API_KEY could not be read: this runtime denied access to environment variables (on Deno, run with --allow-env=FLASHPI_API_KEY). Or pass the key to new Flashpi(apiKey)',
+        { cause: envDenied },
+      )
+    }
     throw new FlashpiError(
       'Missing API key: pass it to new Flashpi(apiKey) or set the FLASHPI_API_KEY environment variable',
     )
@@ -139,37 +153,42 @@ function environmentOf(apiKey: string | undefined): Environment {
   throw new FlashpiError('The API key must start with fp_test_ or fp_live_')
 }
 
-/** API keys are secrets: refuse to run where page visitors could read them. */
+/**
+ * API keys are secrets: refuse to run in a browser, where page visitors could read them. A
+ * simulated DOM (jsdom or happy-dom in tests) on Node.js, Bun or Deno is still a server.
+ */
 function assertServerRuntime(): void {
-  const scope = globalThis as { window?: unknown; document?: unknown }
-  if (typeof scope.window !== 'undefined' && typeof scope.document !== 'undefined') {
+  const scope = globalThis as {
+    window?: unknown
+    document?: unknown
+    process?: { versions?: { node?: unknown } }
+    Deno?: unknown
+    Bun?: unknown
+  }
+  const serverRuntime =
+    typeof scope.process?.versions?.node === 'string' ||
+    typeof scope.Deno !== 'undefined' ||
+    typeof scope.Bun !== 'undefined'
+  if (
+    !serverRuntime &&
+    typeof scope.window !== 'undefined' &&
+    typeof scope.document !== 'undefined'
+  ) {
     throw new FlashpiError(
       'The Flashpi SDK runs on servers only: in a browser your API key would be visible to anyone. Call Flashpi from your backend.',
     )
   }
 }
 
-/** An environment variable on Node.js, Bun and Deno, or `undefined` (Workers, no permission). */
-function readEnv(name: string): string | undefined {
+/**
+ * An environment variable on Node.js, Bun and Deno. `denied` holds the error of a runtime that
+ * refuses to read it (Deno without --allow-env); Workers have no variables here.
+ */
+function readEnv(name: string): { value?: string | undefined; denied?: unknown } {
   const scope = globalThis as { process?: { env?: Record<string, string | undefined> } }
   try {
-    return scope.process?.env?.[name]
-  } catch {
-    // Deno without --allow-env throws instead of answering.
-    return undefined
+    return { value: scope.process?.env?.[name] }
+  } catch (error) {
+    return { denied: error }
   }
-}
-
-function positive(name: string, value: number): number {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new FlashpiError(`${name} must be a positive number of milliseconds`)
-  }
-  return value
-}
-
-function nonNegativeInteger(name: string, value: number): number {
-  if (!Number.isInteger(value) || value < 0) {
-    throw new FlashpiError(`${name} must be a whole number, 0 or more`)
-  }
-  return value
 }

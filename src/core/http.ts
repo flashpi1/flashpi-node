@@ -1,6 +1,7 @@
 import { VERSION } from '../version'
 import type { WithResponse } from './api-promise'
 import { APIError, ConnectionError, FlashpiError, TimeoutError } from './errors'
+import { MAX_TIMEOUT_MS, validRetries, validTimeout } from './validate'
 
 /** Languages the API writes its messages in. Error codes are the same in both. */
 export type Language = 'en' | 'es'
@@ -11,23 +12,27 @@ export type Fetch = (input: string, init: RequestInit) => Promise<Response>
 /** Options every method accepts as its last argument. */
 export interface RequestOptions {
   /**
-   * Idempotency-Key of a POST (1 to 255 printable ASCII characters, unique per operation). The
-   * SDK creates one when it is missing and reuses it on its retries, so a retry never issues a
-   * document twice. Ignored by other methods.
+   * Idempotency-Key of a POST: 1 to 255 visible ASCII characters (no spaces), unique per
+   * operation, such as your order id or a UUID. The SDK creates one when it is missing and
+   * reuses it on its retries, so a retry never issues a document twice. Ignored by other
+   * methods. An `Idempotency-Key` in `headers` works too.
    */
-  idempotencyKey?: string
+  idempotencyKey?: string | undefined
   /** Milliseconds to wait for each attempt, overriding the client's `timeout`. */
-  timeout?: number
+  timeout?: number | undefined
   /** Retries after network errors, timeouts, 429 and 5xx, overriding the client's `maxRetries`. */
-  maxRetries?: number
+  maxRetries?: number | undefined
   /** Cancels the request (and its retries). */
-  signal?: AbortSignal
+  signal?: AbortSignal | undefined
   /** Language of the API's messages for this request, overriding the client's `language`. */
-  language?: Language
-  /** Your own id for the request (`X-Correlation-Id`, 1 to 128 of `A-Za-z0-9._:/+=-`), echoed back and logged by Flashpi. */
-  correlationId?: string
+  language?: Language | undefined
+  /**
+   * Your own id for the request (`X-Correlation-Id`, 1 to 128 of `A-Za-z0-9._:/+=-`), echoed
+   * back and logged by Flashpi.
+   */
+  correlationId?: string | undefined
   /** Extra headers for this request. */
-  headers?: Record<string, string>
+  headers?: Record<string, string> | undefined
 }
 
 /** The client settings the HTTP layer needs. */
@@ -74,6 +79,9 @@ export const MAX_RETRY_AFTER_MS = 60_000
 
 const INITIAL_RETRY_DELAY_MS = 500
 const MAX_RETRY_DELAY_MS = 8_000
+/** Waits between checks on an earlier attempt that the API is still running. */
+const IN_PROGRESS_FIRST_WAIT_MS = 1_000
+const IN_PROGRESS_MAX_WAIT_MS = 5_000
 
 /** Sends requests to the Flashpi API with retries, timeouts and typed errors. */
 export class HttpClient {
@@ -85,11 +93,28 @@ export class HttpClient {
 
   async request<T>(spec: RequestSpec<T>): Promise<WithResponse<T>> {
     const options = spec.options ?? {}
-    const maxRetries = options.maxRetries ?? this.#config.maxRetries
-    const timeout = Math.max(options.timeout ?? this.#config.timeout, spec.minTimeout ?? 0)
+    const maxRetries =
+      options.maxRetries === undefined
+        ? this.#config.maxRetries
+        : validRetries('maxRetries', options.maxRetries)
+    const requestTimeout =
+      options.timeout === undefined
+        ? this.#config.timeout
+        : validTimeout('timeout', options.timeout)
+    const timeout = Math.min(Math.max(requestTimeout, spec.minTimeout ?? 0), MAX_TIMEOUT_MS)
     const url = this.#url(spec.path, spec.query)
     const idempotencyKey =
-      spec.method === 'POST' ? (options.idempotencyKey ?? crypto.randomUUID()) : undefined
+      spec.method === 'POST'
+        ? (options.idempotencyKey ??
+          new Headers(options.headers).get('idempotency-key') ??
+          crypto.randomUUID())
+        : undefined
+    // Serialized once: every attempt sends the same bytes under the same Idempotency-Key, even
+    // when the caller changes the object afterwards.
+    const json = spec.body === undefined ? undefined : JSON.stringify(spec.body)
+    const started = Date.now()
+    let retries = 0
+    let waits = 0
 
     for (let attempt = 0; ; attempt++) {
       const init: RequestInit = {
@@ -97,7 +122,7 @@ export class HttpClient {
         headers: this.#headers(spec, options, idempotencyKey),
       }
       if (spec.multipart) init.body = spec.multipart()
-      else if (spec.body !== undefined) init.body = JSON.stringify(spec.body)
+      else if (json !== undefined) init.body = json
 
       let failure: FlashpiError
       try {
@@ -105,17 +130,31 @@ export class HttpClient {
         if (!(result instanceof APIError)) return result
         failure = result
       } catch (error) {
+        if (error instanceof FlashpiError) error.idempotencyKey = idempotencyKey
         if (!(error instanceof ConnectionError)) throw error
         failure = error
       }
+      failure.idempotencyKey = idempotencyKey
 
       if (attempt > 0 && failure instanceof APIError) {
         const recovered = await this.#recover(spec, failure, options)
         if (recovered) return recovered
+
+        // An earlier attempt of this call is still running on the API (a sync issue whose
+        // answer was lost): wait for it with the same key instead of giving up, until this
+        // call's time is up. These checks do not count as retries.
+        if (failure.status === 409 && failure.code === 'idempotency_key_in_progress') {
+          const wait = Math.min(IN_PROGRESS_FIRST_WAIT_MS * 2 ** waits, IN_PROGRESS_MAX_WAIT_MS)
+          if (Date.now() + wait - started > timeout) throw failure
+          waits++
+          await sleep(wait, options.signal)
+          continue
+        }
       }
 
-      const delay = retryDelay(failure, attempt)
-      if (delay === null || attempt >= maxRetries) throw failure
+      const delay = retryDelay(failure, retries)
+      if (delay === null || retries >= maxRetries) throw failure
+      retries++
       await sleep(delay, options.signal)
     }
   }
@@ -172,7 +211,7 @@ export class HttpClient {
     try {
       let response: Response
       let text: string | undefined
-      let bytes: Uint8Array | undefined
+      let bytes: Uint8Array<ArrayBuffer> | undefined
       try {
         response = await this.#config.fetch(url, { ...init, signal: controller.signal })
         if (!response.ok || responseType !== 'bytes') text = await response.text()
@@ -215,10 +254,12 @@ export class HttpClient {
       accept: spec.accept ?? 'application/json',
       'user-agent': `flashpi-node/${VERSION}`,
     })
-    const language = options.language ?? this.#config.language
-    if (language) headers.set('accept-language', language)
-    for (const [name, value] of Object.entries(this.#config.defaultHeaders))
+    // Lowest priority first: client language, client headers, request language, request headers.
+    if (this.#config.language) headers.set('accept-language', this.#config.language)
+    for (const [name, value] of Object.entries(this.#config.defaultHeaders)) {
       headers.set(name, value)
+    }
+    if (options.language) headers.set('accept-language', options.language)
     for (const [name, value] of Object.entries(options.headers ?? {})) headers.set(name, value)
     if (options.correlationId !== undefined) headers.set('x-correlation-id', options.correlationId)
     if (idempotencyKey !== undefined) headers.set('idempotency-key', idempotencyKey)
@@ -234,7 +275,7 @@ function readData(
   responseType: ResponseType,
   status: number,
   text: string | undefined,
-  bytes: Uint8Array | undefined,
+  bytes: Uint8Array<ArrayBuffer> | undefined,
 ): unknown {
   if (responseType === 'bytes') return bytes
   if (responseType === 'text') return text
@@ -303,12 +344,18 @@ function describe(error: unknown): string {
   return String(error)
 }
 
-/** Encodes path parameters: `pathOf\`/v1/issuers/${issuerId}\``. Rejects empty ids. */
+/**
+ * Encodes path parameters: `pathOf\`/v1/issuers/${issuerId}\``. Rejects empty ids, and `.` and
+ * `..`, which URL parsing would turn into the parent path (another resource).
+ */
 export function pathOf(strings: TemplateStringsArray, ...ids: string[]): string {
   let result = strings[0] ?? ''
   ids.forEach((id, index) => {
     if (typeof id !== 'string' || id.trim() === '') {
       throw new FlashpiError(`Missing id in ${strings.join('{id}')}: got ${JSON.stringify(id)}`)
+    }
+    if (id === '.' || id === '..') {
+      throw new FlashpiError(`Invalid id in ${strings.join('{id}')}: ${JSON.stringify(id)}`)
     }
     result += encodeURIComponent(id) + (strings[index + 1] ?? '')
   })

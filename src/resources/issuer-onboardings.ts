@@ -32,8 +32,14 @@ export class IssuerOnboardings extends APIResource {
   }
 
   /**
-   * Completes a `ready` onboarding: creates the issuer (with the fields given here over the
-   * prefill) and its certificate, or adds the certificate to an existing issuer of the same RUC.
+   * Completes a `ready` onboarding.
+   *
+   * - For a new RUC, `body` is the issuer to create (as in `issuers.create`): `legalName`,
+   *   `headOfficeAddress` and `taxProfile` are required. Build it from `onboarding.prefill`;
+   *   the API does not apply the prefill by itself.
+   * - When `onboarding.existingIssuer` is set, `body` can be `{}`: the certificate is added to
+   *   that issuer for both modes (a renewal) and the issuer is left as it is.
+   * - Send `ruc` when `onboarding.rucNeedsConfirmation` is true.
    */
   complete(
     onboardingId: string,

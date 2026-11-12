@@ -198,7 +198,7 @@ export interface CertificateUpload {
   /** The certificate's password (sent to Flashpi only, never stored in plain text). */
   password: string
   /** File name sent with the upload (default `certificate.p12`). */
-  filename?: string
+  filename?: string | undefined
 }
 
 /** The XML of a document and which stage it comes from. */
