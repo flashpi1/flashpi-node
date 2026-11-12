@@ -5,7 +5,14 @@
       "get": {
         "description": "Public status of Flashpi. Placeholder: it reports `operational` while the API answers; component and SRI availability arrive with the status page.",
         "operationId": "statusGet",
-        "parameters": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -14,6 +21,11 @@
                 "schema": {
                   "$ref": "#/components/schemas/Status"
                 }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             }
           }
@@ -40,6 +52,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -61,10 +79,25 @@
                   "$ref": "#/components/schemas/Issuer"
                 }
               }
+            },
+            "headers": {
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -74,12 +107,17 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -95,6 +133,26 @@
           },
           "409": {
             "description": "issuer_already_exists: the account already has an issuer with this RUC. Or idempotency_key_in_progress: a request with this Idempotency-Key is still running.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -137,7 +195,7 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -149,6 +207,12 @@
               "maxLength": 200,
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -160,15 +224,25 @@
                   "$ref": "#/components/schemas/IssuerList"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -216,6 +290,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -227,15 +307,25 @@
                   "$ref": "#/components/schemas/Issuer"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -281,6 +371,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -302,15 +398,35 @@
                   "$ref": "#/components/schemas/Issuer"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
-          "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+          "400": {
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            }
+          },
+          "401": {
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -326,6 +442,26 @@
           },
           "404": {
             "description": "not_found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -366,19 +502,35 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
           "204": {
-            "description": "Deleted."
+            "description": "Deleted.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -448,6 +600,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -469,10 +627,25 @@
                   "$ref": "#/components/schemas/Establishment"
                 }
               }
+            },
+            "headers": {
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -482,12 +655,17 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -513,6 +691,26 @@
           },
           "409": {
             "description": "establishment_already_exists: the issuer already has this code. Or idempotency_key_in_progress: a request with this Idempotency-Key is still running.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -563,7 +761,7 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -575,6 +773,12 @@
               "maxLength": 200,
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -586,15 +790,25 @@
                   "$ref": "#/components/schemas/EstablishmentList"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -660,6 +874,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -671,15 +891,25 @@
                   "$ref": "#/components/schemas/Establishment"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -733,6 +963,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -754,15 +990,35 @@
                   "$ref": "#/components/schemas/Establishment"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
-          "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+          "400": {
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            }
+          },
+          "401": {
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -778,6 +1034,26 @@
           },
           "404": {
             "description": "not_found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -826,19 +1102,35 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
           "204": {
-            "description": "Deleted."
+            "description": "Deleted.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -916,6 +1208,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -937,10 +1235,25 @@
                   "$ref": "#/components/schemas/EmissionPoint"
                 }
               }
+            },
+            "headers": {
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -950,12 +1263,17 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -981,6 +1299,26 @@
           },
           "409": {
             "description": "emission_point_already_exists: the establishment already has this code. Or idempotency_key_in_progress: a request with this Idempotency-Key is still running.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1039,7 +1377,7 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -1051,6 +1389,12 @@
               "maxLength": 200,
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -1062,15 +1406,25 @@
                   "$ref": "#/components/schemas/EmissionPointList"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -1144,6 +1498,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -1155,15 +1515,25 @@
                   "$ref": "#/components/schemas/EmissionPoint"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -1225,19 +1595,35 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
           "204": {
-            "description": "Deleted."
+            "description": "Deleted.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -1307,6 +1693,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -1340,10 +1732,24 @@
             "description": "Accepted for checking: status `processing`.",
             "headers": {
               "Location": {
-                "description": "Path of the certificate.",
+                "description": "Path of the certificate: /v1/issuers/{issuerId}/certificates/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -1365,12 +1771,17 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -1456,7 +1867,7 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -1468,6 +1879,12 @@
               "maxLength": 200,
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -1479,15 +1896,25 @@
                   "$ref": "#/components/schemas/CertificateList"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -1503,6 +1930,16 @@
           },
           "404": {
             "description": "not_found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "validation_failed: invalid limit or cursor.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1543,6 +1980,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -1554,15 +1997,25 @@
                   "$ref": "#/components/schemas/Certificate"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -1614,6 +2067,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -1647,10 +2106,24 @@
             "description": "Accepted for verification: status `verifying`.",
             "headers": {
               "Location": {
-                "description": "Path of the onboarding.",
+                "description": "Path of the onboarding: /v1/issuer-onboardings/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -1672,12 +2145,17 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -1755,6 +2233,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -1766,15 +2250,25 @@
                   "$ref": "#/components/schemas/IssuerOnboarding"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -1834,6 +2328,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -1850,10 +2350,24 @@
           "201": {
             "headers": {
               "Location": {
-                "description": "Path of the issuer.",
+                "description": "Path of the issuer: /v1/issuers/{issuer.id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "description": "",
@@ -1866,7 +2380,7 @@
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1876,12 +2390,17 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -1907,6 +2426,26 @@
           },
           "409": {
             "description": "issuer_onboarding_not_ready (still verifying), issuer_onboarding_rejected, issuer_onboarding_completed, issuer_onboarding_expired, or issuer_already_exists. Or idempotency_key_in_progress: a request with this Idempotency-Key is still running.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1953,6 +2492,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -2015,10 +2560,24 @@
             "description": "Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2033,10 +2592,24 @@
             "description": "Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2048,7 +2621,7 @@
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2058,17 +2631,22 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
+              }
             }
           },
           "403": {
-            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended).",
+            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2087,8 +2665,53 @@
               }
             }
           },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
+              }
+            }
+          },
+          "503": {
+            "description": "`demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2125,6 +2748,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -2178,10 +2807,24 @@
             "description": "Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2196,10 +2839,24 @@
             "description": "Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2211,7 +2868,7 @@
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2221,17 +2878,22 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
+              }
             }
           },
           "403": {
-            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended).",
+            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2250,8 +2912,53 @@
               }
             }
           },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
+              }
+            }
+          },
+          "503": {
+            "description": "`demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2288,6 +2995,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -2343,10 +3056,24 @@
             "description": "Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2361,10 +3088,24 @@
             "description": "Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2376,7 +3117,7 @@
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2386,17 +3127,22 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
+              }
             }
           },
           "403": {
-            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended).",
+            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2415,8 +3161,53 @@
               }
             }
           },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
+              }
+            }
+          },
+          "503": {
+            "description": "`demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2453,6 +3244,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -2509,10 +3306,24 @@
             "description": "Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2527,10 +3338,24 @@
             "description": "Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2542,7 +3367,7 @@
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2552,17 +3377,22 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
+              }
             }
           },
           "403": {
-            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended).",
+            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2581,8 +3411,53 @@
               }
             }
           },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
+              }
+            }
+          },
+          "503": {
+            "description": "`demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2619,6 +3494,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -2676,10 +3557,24 @@
             "description": "Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2694,10 +3589,24 @@
             "description": "Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2709,7 +3618,7 @@
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2719,17 +3628,22 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
+              }
             }
           },
           "403": {
-            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended).",
+            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2748,8 +3662,53 @@
               }
             }
           },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
+              }
+            }
+          },
+          "503": {
+            "description": "`demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2786,6 +3745,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -2856,10 +3821,24 @@
             "description": "Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2874,10 +3853,24 @@
             "description": "Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first).",
             "headers": {
               "Location": {
-                "description": "Path of the document: /v1/documents/{id}.",
+                "description": "Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown.",
                 "schema": {
                   "type": "string"
+                },
+                "required": false
+              },
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             },
             "content": {
@@ -2889,7 +3882,7 @@
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2899,17 +3892,22 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
+              }
             }
           },
           "403": {
-            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended).",
+            "description": "The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2928,8 +3926,53 @@
               }
             }
           },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "description": "validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
+              }
+            }
+          },
+          "503": {
+            "description": "`demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2964,7 +4007,7 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -3063,6 +4106,12 @@
               "pattern": "^\\d{49}$",
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -3074,15 +4123,25 @@
                   "$ref": "#/components/schemas/DocumentList"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -3130,6 +4189,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -3141,15 +4206,25 @@
                   "$ref": "#/components/schemas/Document"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -3197,6 +4272,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -3220,16 +4301,24 @@
                     "unsigned"
                   ]
                 }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -3277,6 +4366,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -3289,15 +4384,25 @@
                   "format": "binary"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -3367,6 +4472,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -3388,10 +4499,25 @@
                   "$ref": "#/components/schemas/Document"
                 }
               }
+            },
+            "headers": {
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3401,12 +4527,17 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -3440,6 +4571,26 @@
               }
             }
           },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "422": {
             "description": "idempotency_key_reused: the Idempotency-Key was used with a different request.",
             "content": {
@@ -3457,6 +4608,11 @@
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
               }
             }
           }
@@ -3488,6 +4644,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -3509,10 +4671,25 @@
                   "$ref": "#/components/schemas/WebhookEndpoint"
                 }
               }
+            },
+            "headers": {
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3522,12 +4699,17 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -3543,6 +4725,26 @@
           },
           "409": {
             "description": "idempotency_key_in_progress: a request with this Idempotency-Key is still running.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3585,7 +4787,7 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -3597,6 +4799,12 @@
               "maxLength": 200,
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -3608,15 +4816,25 @@
                   "$ref": "#/components/schemas/WebhookEndpointList"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -3664,6 +4882,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -3675,15 +4899,25 @@
                   "$ref": "#/components/schemas/WebhookEndpoint"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -3729,6 +4963,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -3750,15 +4990,35 @@
                   "$ref": "#/components/schemas/WebhookEndpoint"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
-          "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+          "400": {
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            }
+          },
+          "401": {
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -3784,6 +5044,26 @@
           },
           "409": {
             "description": "conflict: the endpoint changed at the same time; try again.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3824,19 +5104,35 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
           "204": {
-            "description": "Deleted."
+            "description": "Deleted.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -3884,6 +5180,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -3895,15 +5197,25 @@
                   "$ref": "#/components/schemas/WebhookEndpointSecret"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -3963,6 +5275,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "requestBody": {
@@ -3984,10 +5302,25 @@
                   "$ref": "#/components/schemas/WebhookEndpoint"
                 }
               }
+            },
+            "headers": {
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "400": {
-            "description": "invalid_idempotency_key: the Idempotency-Key header is malformed.",
+            "description": "`malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3997,12 +5330,17 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -4028,6 +5366,26 @@
           },
           "409": {
             "description": "conflict: rotated by another request at the same time. Or idempotency_key_in_progress: a request with this Idempotency-Key is still running.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: the JSON body is larger than 1 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4082,6 +5440,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -4092,6 +5456,21 @@
                 "schema": {
                   "$ref": "#/components/schemas/WebhookEndpoint"
                 }
+              }
+            },
+            "headers": {
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             }
           },
@@ -4106,12 +5485,17 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -4189,7 +5573,7 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -4262,6 +5646,12 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -4273,15 +5663,25 @@
                   "$ref": "#/components/schemas/WebhookDeliveryList"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -4347,6 +5747,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -4358,15 +5764,25 @@
                   "$ref": "#/components/schemas/WebhookDeliveryDetail"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -4434,6 +5850,12 @@
               "maxLength": 255,
               "pattern": "^[\\x21-\\x7E]+$"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -4444,6 +5866,21 @@
                 "schema": {
                   "$ref": "#/components/schemas/WebhookDeliveryDetail"
                 }
+              }
+            },
+            "headers": {
+              "Idempotent-Replayed": {
+                "required": false,
+                "description": "`true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
               }
             }
           },
@@ -4458,12 +5895,17 @@
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -4533,7 +5975,7 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -4612,6 +6054,12 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -4623,15 +6071,25 @@
                   "$ref": "#/components/schemas/EventList"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -4679,6 +6137,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          },
+          {
+            "$ref": "#/components/parameters/CorrelationId"
           }
         ],
         "responses": {
@@ -4690,15 +6154,25 @@
                   "$ref": "#/components/schemas/Event"
                 }
               }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
             }
           },
           "401": {
-            "description": "The API key is missing, malformed, unknown or revoked.",
+            "description": "`authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked.",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WwwAuthenticate"
               }
             }
           },
@@ -4737,11 +6211,51 @@
   },
   "info": {
     "title": "Flashpi Invoicing API",
-    "description": "Issue and query electronic tax documents authorized by Ecuador's SRI. Authenticate with an API key as a Bearer token: fp_test_ keys use the SRI test environment and fp_live_ keys use SRI production. Errors follow RFC 9457 (application/problem+json). Every response carries an X-Request-Id header (a UUIDv7, also returned as requestId in errors). Send an optional X-Correlation-Id header (1 to 128 letters, digits and -_.:/+=) to tie a request to your own records: it is echoed back, and an invalid value is rejected with 400 invalid_correlation_id. JSON bodies are limited to 1 MB (10 MB for /v1/batches).",
+    "description": "Issue and query electronic tax documents authorized by Ecuador's SRI. Authenticate with an API key as a Bearer token: fp_test_ keys use the SRI test environment and fp_live_ keys use SRI production. Errors follow RFC 9457 (application/problem+json), in Spanish with Accept-Language: es. Any operation can also answer 500 internal_error (unexpected: retry with backoff, reusing the Idempotency-Key on a POST, and give requestId to support); 502, 503 and 504 answers from the edge may carry no Problem Details body. Every response carries an X-Request-Id header (a UUIDv7, also returned as requestId in errors). Send an optional X-Correlation-Id header (1 to 128 letters, digits and -_.:/+=) to tie a request to your own records: it is echoed back, and an invalid value is rejected with 400 invalid_correlation_id. JSON bodies are limited to 1 MB; a larger body gets 413 payload_too_large.",
     "version": "0.0.0",
     "contact": {}
   },
-  "tags": [],
+  "tags": [
+    {
+      "name": "Status"
+    },
+    {
+      "name": "Issuers"
+    },
+    {
+      "name": "Certificates"
+    },
+    {
+      "name": "Issuer onboardings"
+    },
+    {
+      "name": "Invoices"
+    },
+    {
+      "name": "Credit notes"
+    },
+    {
+      "name": "Debit notes"
+    },
+    {
+      "name": "Purchase settlements"
+    },
+    {
+      "name": "Waybills"
+    },
+    {
+      "name": "Withholdings"
+    },
+    {
+      "name": "Documents"
+    },
+    {
+      "name": "Webhooks"
+    },
+    {
+      "name": "Events"
+    }
+  ],
   "servers": [
     {
       "url": "https://api.flashpi.com.ec",
@@ -4826,34 +6340,50 @@
           "webhook_endpoint_already_verified",
           "webhook_endpoint_not_verified",
           "webhook_delivery_in_progress",
-          "invalid_credentials",
-          "too_many_attempts",
-          "email_not_verified",
-          "email_already_verified",
-          "invalid_token",
-          "email_verification_session_mismatch",
-          "csrf_check_failed",
-          "reauthentication_required",
-          "mfa_reauthentication_required",
-          "password_not_set",
-          "google_sign_in_unavailable",
-          "legal_acceptance_required",
-          "mfa_required",
-          "mfa_enrollment_required",
-          "mfa_not_enabled",
-          "mfa_enrollment_not_started",
-          "mfa_disable_not_allowed",
-          "last_owner",
-          "already_member",
-          "invitation_email_mismatch",
-          "invitation_requires_login",
           "sandbox_not_enabled",
           "demo_issuer_quota_exceeded",
           "demo_issuer_unavailable",
-          "live_key_requirements_not_met",
           "account_suspended"
         ],
-        "description": "Stable machine-readable error code, the same in every language. Branch on it, never on `type`, `title` or `detail`."
+        "description": "Stable machine-readable error code, the same in every language. Branch on it, never on `type`, `title` or `detail`. New codes may be added: handle an unknown one by its HTTP status."
+      },
+      "FieldErrorCode": {
+        "type": "string",
+        "enum": [
+          "required",
+          "unknown_field",
+          "invalid_type",
+          "invalid_format",
+          "invalid_option",
+          "too_short",
+          "too_long",
+          "out_of_range",
+          "invalid_value",
+          "unsupported_character",
+          "not_found",
+          "invalid_decimal",
+          "invalid_identification",
+          "invalid_check_digit",
+          "final_consumer_not_allowed",
+          "not_in_force",
+          "too_many_additional_fields",
+          "reserved_name",
+          "amount_mismatch",
+          "future_date",
+          "date_too_early",
+          "date_too_late",
+          "discount_exceeds_amount",
+          "duplicate",
+          "vat_required",
+          "unsupported_tax",
+          "rate_mismatch",
+          "incompatible_issuer_profile",
+          "url_not_allowed",
+          "demo_issuer_test_only",
+          "demo_issuer_sequential_not_allowed",
+          "ruc_mismatch"
+        ],
+        "description": "Stable machine-readable reason. New codes may be added: treat an unknown one like `invalid_value`."
       },
       "FieldError": {
         "type": "object",
@@ -4864,9 +6394,13 @@
             "description": "Path of the invalid field."
           },
           "code": {
-            "type": "string",
             "example": "required",
-            "description": "Stable machine-readable reason."
+            "description": "Stable machine-readable reason. New codes may be added: treat an unknown one like `invalid_value`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FieldErrorCode"
+              }
+            ]
           },
           "message": {
             "type": "string",
@@ -4911,7 +6445,7 @@
           },
           "code": {
             "example": "validation_failed",
-            "description": "Stable machine-readable error code, the same in every language. Branch on it, never on `type`, `title` or `detail`.",
+            "description": "Stable machine-readable error code, the same in every language. Branch on it, never on `type`, `title` or `detail`. New codes may be added: handle an unknown one by its HTTP status.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/ErrorCode"
@@ -4929,9 +6463,62 @@
             "type": "string",
             "example": "017f22e2-79b0-7cc3-98c4-dc0c0c07398f",
             "description": "Request ID (UUIDv7); include it when contacting support."
+          },
+          "documentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "`idempotency_key_reused`: the document the Idempotency-Key already created."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The daily limit that was reached (`email_resend_limit_reached`, `account_email_limit_reached`, `demo_issuer_quota_exceeded`)."
+          },
+          "resetsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the daily limit resets: the next midnight in Ecuador (the three codes above and `platform_email_limit_reached`). Retry-After gives the same in seconds."
+          },
+          "rideStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "generated",
+              "failed"
+            ],
+            "description": "`ride_not_available`: the status of the RIDE."
+          },
+          "documentStatus": {
+            "type": "string",
+            "enum": [
+              "processing",
+              "pending_sri",
+              "authorized",
+              "rejected",
+              "failed",
+              "voided"
+            ],
+            "description": "`document_not_authorized`: the status of the document."
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "test",
+              "live"
+            ],
+            "description": "`email_sending_paused`: the mode whose email sending is paused."
+          },
+          "expectedTotal": {
+            "type": "string",
+            "example": "112.00",
+            "description": "`total_mismatch`: the `expectedTotal` you sent."
+          },
+          "computedTotal": {
+            "type": "string",
+            "example": "111.99",
+            "description": "`total_mismatch`: the total Flashpi computed."
           }
         },
-        "description": "RFC 9457 problem details.",
+        "description": "RFC 9457 problem details, in the language of Content-Language (`en`, or `es` with Accept-Language: es). Some codes add extension members, listed below; others may appear.",
         "required": [
           "type",
           "title",
@@ -4941,7 +6528,8 @@
           "code",
           "errors",
           "requestId"
-        ]
+        ],
+        "additionalProperties": true
       },
       "IssuerTaxProfileInput": {
         "type": "object",
@@ -6325,10 +7913,10 @@
           },
           "waitTimeoutSeconds": {
             "type": "integer",
-            "description": "Sync mode: the longest wait, in seconds. Defaults to 15 and may not exceed 30 (both configurable by Flashpi); a longer wait is refused with `out_of_range`. Used only with `waitForAuthorization`.",
+            "description": "Sync mode: the longest wait, in seconds, from 1 to 30. Defaults to 15. A longer wait is refused with `out_of_range`. Used only with `waitForAuthorization`.",
             "example": 15,
             "minimum": 1,
-            "maximum": 60
+            "maximum": 30
           }
         },
         "description": "How Flashpi delivers the document once the SRI authorizes it."
@@ -8448,7 +10036,7 @@
               "full",
               "thin"
             ],
-            "description": "`full` (default): the event with a snapshot of its resource in `data`. `thin`: only the event id and type (read the snapshot with GET /v1/events/{id}).",
+            "description": "`full` (default): the event with a snapshot of its resource in `data`. `thin`: the event without `data`, only `id`, `type`, `environment` and `createdAt` (read the snapshot with GET /v1/events/{id}).",
             "default": "full"
           }
         },
@@ -8580,7 +10168,7 @@
               "full",
               "thin"
             ],
-            "description": "`full` (default): the event with a snapshot of its resource in `data`. `thin`: only the event id and type (read the snapshot with GET /v1/events/{id})."
+            "description": "`full` (default): the event with a snapshot of its resource in `data`. `thin`: the event without `data`, only `id`, `type`, `environment` and `createdAt` (read the snapshot with GET /v1/events/{id})."
           },
           "status": {
             "type": "string",
@@ -8728,7 +10316,7 @@
               "full",
               "thin"
             ],
-            "description": "`full` (default): the event with a snapshot of its resource in `data`. `thin`: only the event id and type (read the snapshot with GET /v1/events/{id})."
+            "description": "`full` (default): the event with a snapshot of its resource in `data`. `thin`: the event without `data`, only `id`, `type`, `environment` and `createdAt` (read the snapshot with GET /v1/events/{id})."
           },
           "disabled": {
             "type": "boolean",
@@ -9220,6 +10808,70 @@
         ]
       },
       "Event": {
+        "description": "Something that happened to a resource. The webhook body is this same object (without `data` for thin endpoints), and `id` is its webhook-id header.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DocumentEvent"
+          },
+          {
+            "$ref": "#/components/schemas/CertificateEvent"
+          },
+          {
+            "$ref": "#/components/schemas/AccountEvent"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "invoice.authorized": "#/components/schemas/DocumentEvent",
+            "invoice.rejected": "#/components/schemas/DocumentEvent",
+            "purchase_settlement.authorized": "#/components/schemas/DocumentEvent",
+            "purchase_settlement.rejected": "#/components/schemas/DocumentEvent",
+            "credit_note.authorized": "#/components/schemas/DocumentEvent",
+            "credit_note.rejected": "#/components/schemas/DocumentEvent",
+            "debit_note.authorized": "#/components/schemas/DocumentEvent",
+            "debit_note.rejected": "#/components/schemas/DocumentEvent",
+            "waybill.authorized": "#/components/schemas/DocumentEvent",
+            "waybill.rejected": "#/components/schemas/DocumentEvent",
+            "withholding.authorized": "#/components/schemas/DocumentEvent",
+            "withholding.rejected": "#/components/schemas/DocumentEvent",
+            "certificate.verified": "#/components/schemas/CertificateEvent",
+            "certificate.pending": "#/components/schemas/CertificateEvent",
+            "certificate.blocked": "#/components/schemas/CertificateEvent",
+            "certificate.revoked": "#/components/schemas/CertificateEvent",
+            "certificate.reactivated": "#/components/schemas/CertificateEvent",
+            "document.ride.generated": "#/components/schemas/DocumentEvent",
+            "document.ride.failed": "#/components/schemas/DocumentEvent",
+            "document.email.sent": "#/components/schemas/DocumentEvent",
+            "document.email.delivered": "#/components/schemas/DocumentEvent",
+            "document.email.bounced": "#/components/schemas/DocumentEvent",
+            "document.email.complained": "#/components/schemas/DocumentEvent",
+            "document.email.failed": "#/components/schemas/DocumentEvent",
+            "account.email_paused": "#/components/schemas/AccountEvent",
+            "account.email_resumed": "#/components/schemas/AccountEvent"
+          }
+        }
+      },
+      "EventList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "description": "A page of events, newest first.",
+        "required": [
+          "data",
+          "pagination"
+        ]
+      },
+      "DocumentEvent": {
         "type": "object",
         "properties": {
           "id": {
@@ -9242,20 +10894,13 @@
               "waybill.rejected",
               "withholding.authorized",
               "withholding.rejected",
-              "certificate.verified",
-              "certificate.pending",
-              "certificate.blocked",
-              "certificate.revoked",
-              "certificate.reactivated",
               "document.ride.generated",
               "document.ride.failed",
               "document.email.sent",
               "document.email.delivered",
               "document.email.bounced",
               "document.email.complained",
-              "document.email.failed",
-              "account.email_paused",
-              "account.email_resumed"
+              "document.email.failed"
             ],
             "example": "invoice.authorized"
           },
@@ -9272,51 +10917,114 @@
             "format": "date-time"
           },
           "data": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/Document"
-              },
-              {
-                "$ref": "#/components/schemas/Certificate"
-              },
-              {
-                "$ref": "#/components/schemas/AccountEmailSending"
-              }
-            ],
-            "description": "The resource as the API returned it when the event happened (texts in English): a Document for `<document type>.*` and `document.*` events, a Certificate for `certificate.*` events, an AccountEmailSending for `account.*` events."
+            "$ref": "#/components/schemas/Document"
           }
         },
-        "description": "Something that happened to a resource. The webhook body is this same object (without `data` for thin endpoints), and `id` is its webhook-id header.",
+        "description": "An event about a document (its tax outcome, RIDE or email): `data` is the Document as the API returned it when the event happened (texts in English).",
         "required": [
           "id",
           "type",
           "environment",
           "createdAt",
           "data"
-        ]
+        ],
+        "title": "Document event"
       },
-      "EventList": {
+      "CertificateEvent": {
         "type": "object",
         "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Event"
-            }
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "01a14082-3c1d-7f0e-8b2a-6d5e4f3a2b10"
           },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+          "type": {
+            "type": "string",
+            "enum": [
+              "certificate.verified",
+              "certificate.pending",
+              "certificate.blocked",
+              "certificate.revoked",
+              "certificate.reactivated"
+            ],
+            "example": "certificate.verified"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "test",
+              "live"
+            ],
+            "description": "Mode of the resource."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Certificate"
           }
         },
-        "description": "A page of events, newest first.",
+        "description": "An event about a .p12 certificate: `data` is the Certificate as the API returned it when the event happened (texts in English).",
         "required": [
-          "data",
-          "pagination"
-        ]
+          "id",
+          "type",
+          "environment",
+          "createdAt",
+          "data"
+        ],
+        "title": "Certificate event"
+      },
+      "AccountEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "01a14082-3c1d-7f0e-8b2a-6d5e4f3a2b10"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "account.email_paused",
+              "account.email_resumed"
+            ],
+            "example": "account.email_paused"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "test",
+              "live"
+            ],
+            "description": "Mode of the resource."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AccountEmailSending"
+          }
+        },
+        "description": "An event about the account's email sending: `data` is the AccountEmailSending as the API returned it when the event happened (texts in English).",
+        "required": [
+          "id",
+          "type",
+          "environment",
+          "createdAt",
+          "data"
+        ],
+        "title": "Account event"
       },
       "EventThin": {
         "type": "object",
         "description": "The body sent to `thin` endpoints: the event without its snapshot. Read it with GET /v1/events/{id}.",
+        "not": {
+          "required": [
+            "data"
+          ]
+        },
         "required": [
           "id",
           "type",
@@ -9374,7 +11082,7 @@
       },
       "WebhookEndpointVerificationEvent": {
         "type": "object",
-        "description": "The activation handshake of a new or moved endpoint. It is signed like every webhook; answer 2xx with `{\"challenge\": \"<data.challenge>\"}` (or the challenge as plain text).",
+        "description": "The activation handshake of an endpoint, sent when it is created, when its URL changes and on POST /v1/webhook-endpoints/{id}/verify; every attempt has a new id and challenge. It is signed like every webhook; answer 2xx with `{\"challenge\": \"<data.challenge>\"}` (or the challenge as plain text).",
         "required": [
           "id",
           "type",
@@ -9385,7 +11093,8 @@
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "This attempt's id, also its webhook-id header: new on every attempt."
           },
           "type": {
             "type": "string",
@@ -9400,7 +11109,8 @@
           },
           "createdAt": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When this attempt was sent."
           },
           "data": {
             "type": "object",
@@ -9415,10 +11125,55 @@
               },
               "challenge": {
                 "type": "string",
-                "description": "Random value to echo back."
+                "description": "Random value to echo back, new on every attempt: echo the one of this request."
               }
             }
           }
+        }
+      }
+    },
+    "headers": {
+      "RequestId": {
+        "description": "Flashpi's ID of the request, a UUIDv7 (also `requestId` in errors). Include it when you contact support.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "WwwAuthenticate": {
+        "description": "RFC 6750 challenge: `Bearer realm=\"flashpi\"`, plus `error=\"invalid_token\"` with `invalid_api_key`.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "RetryAfter": {
+        "description": "Whole seconds to wait before trying again.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "parameters": {
+      "AcceptLanguage": {
+        "name": "Accept-Language",
+        "in": "header",
+        "required": false,
+        "description": "Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "CorrelationId": {
+        "name": "X-Correlation-Id",
+        "in": "header",
+        "required": false,
+        "description": "Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._:/+=-]{1,128}$"
         }
       }
     }
@@ -9437,7 +11192,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -9470,7 +11225,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -9500,7 +11255,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -9533,7 +11288,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -9563,7 +11318,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -9596,7 +11351,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -9626,7 +11381,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -9659,7 +11414,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -9689,7 +11444,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -9722,7 +11477,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -9752,7 +11507,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -9785,7 +11540,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -9815,7 +11570,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -9848,7 +11603,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -9878,7 +11633,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -9911,7 +11666,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -9941,7 +11696,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -9974,7 +11729,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10004,7 +11759,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10037,7 +11792,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10067,7 +11822,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10100,7 +11855,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10130,7 +11885,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10163,7 +11918,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10193,7 +11948,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10226,7 +11981,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/CertificateEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10256,7 +12011,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10289,7 +12044,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/CertificateEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10319,7 +12074,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10352,7 +12107,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/CertificateEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10382,7 +12137,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10415,7 +12170,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/CertificateEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10445,7 +12200,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10478,7 +12233,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/CertificateEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10508,7 +12263,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10541,7 +12296,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10571,7 +12326,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10604,7 +12359,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10634,7 +12389,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10667,7 +12422,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10697,7 +12452,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10730,7 +12485,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10760,7 +12515,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10793,7 +12548,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10823,7 +12578,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10856,7 +12611,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10886,7 +12641,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10919,7 +12674,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/DocumentEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -10949,7 +12704,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -10982,7 +12737,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/AccountEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -11012,7 +12767,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The event id (UUIDv7), the same on every attempt and replay: deduplicate on it.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -11045,7 +12800,7 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Event"
+                    "$ref": "#/components/schemas/AccountEvent"
                   },
                   {
                     "$ref": "#/components/schemas/EventThin"
@@ -11066,7 +12821,7 @@
       "post": {
         "operationId": "webhookWebhookEndpointVerification",
         "summary": "webhook_endpoint.verification",
-        "description": "The activation handshake of a new or moved endpoint. It is signed like every webhook; answer 2xx with `{\"challenge\": \"<data.challenge>\"}` (or the challenge as plain text).",
+        "description": "The activation handshake of an endpoint, sent when it is created, when its URL changes and on POST /v1/webhook-endpoints/{id}/verify; every attempt has a new id and challenge. It is signed like every webhook; answer 2xx with `{\"challenge\": \"<data.challenge>\"}` (or the challenge as plain text).",
         "tags": [
           "Webhooks"
         ],
@@ -11075,7 +12830,7 @@
             "name": "webhook-id",
             "in": "header",
             "required": true,
-            "description": "The event id (UUIDv7), the same on every attempt: deduplicate on it.",
+            "description": "The id of this handshake attempt (UUIDv7), also the body `id`: new on every attempt and not an event (GET /v1/events does not know it). It only enters the signature.",
             "schema": {
               "type": "string",
               "format": "uuid"

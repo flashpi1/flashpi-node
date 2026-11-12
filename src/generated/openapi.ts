@@ -1208,7 +1208,7 @@ export type webhooks = {
         put?: never;
         /**
          * webhook_endpoint.verification
-         * @description The activation handshake of a new or moved endpoint. It is signed like every webhook; answer 2xx with `{"challenge": "<data.challenge>"}` (or the challenge as plain text).
+         * @description The activation handshake of an endpoint, sent when it is created, when its URL changes and on POST /v1/webhook-endpoints/{id}/verify; every attempt has a new id and challenge. It is signed like every webhook; answer 2xx with `{"challenge": "<data.challenge>"}` (or the challenge as plain text).
          */
         post: operations["webhookWebhookEndpointVerification"];
         delete?: never;
@@ -1308,6 +1308,30 @@ export type components = {
              */
             since: string;
         };
+        /**
+         * Account event
+         * @description An event about the account's email sending: `data` is the AccountEmailSending as the API returned it when the event happened (texts in English).
+         */
+        AccountEvent: {
+            /** Format: date-time */
+            createdAt: string;
+            data: components["schemas"]["AccountEmailSending"];
+            /**
+             * @description Mode of the resource.
+             * @enum {string}
+             */
+            environment: "test" | "live";
+            /**
+             * Format: uuid
+             * @example 01a14082-3c1d-7f0e-8b2a-6d5e4f3a2b10
+             */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "account.email_paused" | "account.email_resumed";
+        };
         /** @description An issuer's .p12 signing certificate. Flashpi checks the upload asynchronously (`processing`, then `accepted` or `rejected`); the file and its password are never returned. */
         Certificate: {
             /** @description Whether it serves every mode (test and live): a certificate uploaded through the issuer onboarding (POST /v1/issuer-onboardings). False for one uploaded for one mode. */
@@ -1351,6 +1375,30 @@ export type components = {
             validFrom: string | null;
             /** Format: date-time */
             validUntil: string | null;
+        };
+        /**
+         * Certificate event
+         * @description An event about a .p12 certificate: `data` is the Certificate as the API returned it when the event happened (texts in English).
+         */
+        CertificateEvent: {
+            /** Format: date-time */
+            createdAt: string;
+            data: components["schemas"]["Certificate"];
+            /**
+             * @description Mode of the resource.
+             * @enum {string}
+             */
+            environment: "test" | "live";
+            /**
+             * Format: uuid
+             * @example 01a14082-3c1d-7f0e-8b2a-6d5e4f3a2b10
+             */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "certificate.verified" | "certificate.pending" | "certificate.blocked" | "certificate.revoked" | "certificate.reactivated";
         };
         /** @description A page of certificates, newest first. */
         CertificateList: {
@@ -1765,7 +1813,7 @@ export type components = {
              */
             enabledEvents: ("invoice.authorized" | "invoice.rejected" | "purchase_settlement.authorized" | "purchase_settlement.rejected" | "credit_note.authorized" | "credit_note.rejected" | "debit_note.authorized" | "debit_note.rejected" | "waybill.authorized" | "waybill.rejected" | "withholding.authorized" | "withholding.rejected" | "certificate.verified" | "certificate.pending" | "certificate.blocked" | "certificate.revoked" | "certificate.reactivated" | "document.ride.generated" | "document.ride.failed" | "document.email.sent" | "document.email.delivered" | "document.email.bounced" | "document.email.complained" | "document.email.failed" | "account.email_paused" | "account.email_resumed" | "*")[];
             /**
-             * @description `full` (default): the event with a snapshot of its resource in `data`. `thin`: only the event id and type (read the snapshot with GET /v1/events/{id}).
+             * @description `full` (default): the event with a snapshot of its resource in `data`. `thin`: the event without `data`, only `id`, `type`, `environment` and `createdAt` (read the snapshot with GET /v1/events/{id}).
              * @default full
              * @enum {string}
              */
@@ -2000,6 +2048,30 @@ export type components = {
              */
             suggestedRecipient: string;
         };
+        /**
+         * Document event
+         * @description An event about a document (its tax outcome, RIDE or email): `data` is the Document as the API returned it when the event happened (texts in English).
+         */
+        DocumentEvent: {
+            /** Format: date-time */
+            createdAt: string;
+            data: components["schemas"]["Document"];
+            /**
+             * @description Mode of the resource.
+             * @enum {string}
+             */
+            environment: "test" | "live";
+            /**
+             * Format: uuid
+             * @example 01a14082-3c1d-7f0e-8b2a-6d5e4f3a2b10
+             */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "invoice.authorized" | "invoice.rejected" | "purchase_settlement.authorized" | "purchase_settlement.rejected" | "credit_note.authorized" | "credit_note.rejected" | "debit_note.authorized" | "debit_note.rejected" | "waybill.authorized" | "waybill.rejected" | "withholding.authorized" | "withholding.rejected" | "document.ride.generated" | "document.ride.failed" | "document.email.sent" | "document.email.delivered" | "document.email.bounced" | "document.email.complained" | "document.email.failed";
+        };
         /** @description Why a `failed` document could not reach an SRI answer. */
         DocumentFailure: {
             /**
@@ -2085,7 +2157,7 @@ export type components = {
              */
             waitForAuthorization?: boolean;
             /**
-             * @description Sync mode: the longest wait, in seconds. Defaults to 15 and may not exceed 30 (both configurable by Flashpi); a longer wait is refused with `out_of_range`. Used only with `waitForAuthorization`.
+             * @description Sync mode: the longest wait, in seconds, from 1 to 30. Defaults to 15. A longer wait is refused with `out_of_range`. Used only with `waitForAuthorization`.
              * @example 15
              */
             waitTimeoutSeconds?: number;
@@ -2278,10 +2350,10 @@ export type components = {
             pagination: components["schemas"]["Pagination"];
         };
         /**
-         * @description Stable machine-readable error code, the same in every language. Branch on it, never on `type`, `title` or `detail`.
+         * @description Stable machine-readable error code, the same in every language. Branch on it, never on `type`, `title` or `detail`. New codes may be added: handle an unknown one by its HTTP status.
          * @enum {string}
          */
-        ErrorCode: "bad_request" | "malformed_json" | "invalid_correlation_id" | "validation_failed" | "authentication_required" | "forbidden" | "not_found" | "method_not_allowed" | "not_acceptable" | "conflict" | "payload_too_large" | "unsupported_media_type" | "rate_limited" | "internal_error" | "service_unavailable" | "invalid_api_key" | "key_scope_mismatch" | "key_read_only" | "ip_not_allowed" | "invalid_idempotency_key" | "idempotency_key_reused" | "idempotency_key_in_progress" | "issuer_already_exists" | "establishment_already_exists" | "emission_point_already_exists" | "resource_in_use" | "issuer_onboarding_not_ready" | "issuer_onboarding_expired" | "issuer_onboarding_completed" | "issuer_onboarding_rejected" | "total_mismatch" | "sequential_already_used" | "sequentials_exhausted" | "document_schema_invalid" | "document_too_large" | "document_not_authorized" | "ride_not_available" | "email_recipient_missing" | "email_already_queued" | "email_resend_limit_reached" | "account_email_limit_reached" | "email_sending_paused" | "test_recipient_not_allowed" | "platform_email_limit_reached" | "webhook_endpoint_disabled" | "webhook_endpoint_already_verified" | "webhook_endpoint_not_verified" | "webhook_delivery_in_progress" | "invalid_credentials" | "too_many_attempts" | "email_not_verified" | "email_already_verified" | "invalid_token" | "email_verification_session_mismatch" | "csrf_check_failed" | "reauthentication_required" | "mfa_reauthentication_required" | "password_not_set" | "google_sign_in_unavailable" | "legal_acceptance_required" | "mfa_required" | "mfa_enrollment_required" | "mfa_not_enabled" | "mfa_enrollment_not_started" | "mfa_disable_not_allowed" | "last_owner" | "already_member" | "invitation_email_mismatch" | "invitation_requires_login" | "sandbox_not_enabled" | "demo_issuer_quota_exceeded" | "demo_issuer_unavailable" | "live_key_requirements_not_met" | "account_suspended";
+        ErrorCode: "bad_request" | "malformed_json" | "invalid_correlation_id" | "validation_failed" | "authentication_required" | "forbidden" | "not_found" | "method_not_allowed" | "not_acceptable" | "conflict" | "payload_too_large" | "unsupported_media_type" | "rate_limited" | "internal_error" | "service_unavailable" | "invalid_api_key" | "key_scope_mismatch" | "key_read_only" | "ip_not_allowed" | "invalid_idempotency_key" | "idempotency_key_reused" | "idempotency_key_in_progress" | "issuer_already_exists" | "establishment_already_exists" | "emission_point_already_exists" | "resource_in_use" | "issuer_onboarding_not_ready" | "issuer_onboarding_expired" | "issuer_onboarding_completed" | "issuer_onboarding_rejected" | "total_mismatch" | "sequential_already_used" | "sequentials_exhausted" | "document_schema_invalid" | "document_too_large" | "document_not_authorized" | "ride_not_available" | "email_recipient_missing" | "email_already_queued" | "email_resend_limit_reached" | "account_email_limit_reached" | "email_sending_paused" | "test_recipient_not_allowed" | "platform_email_limit_reached" | "webhook_endpoint_disabled" | "webhook_endpoint_already_verified" | "webhook_endpoint_not_verified" | "webhook_delivery_in_progress" | "sandbox_not_enabled" | "demo_issuer_quota_exceeded" | "demo_issuer_unavailable" | "account_suspended";
         /** @description An establishment of an issuer. */
         Establishment: {
             /**
@@ -2309,27 +2381,7 @@ export type components = {
             pagination: components["schemas"]["Pagination"];
         };
         /** @description Something that happened to a resource. The webhook body is this same object (without `data` for thin endpoints), and `id` is its webhook-id header. */
-        Event: {
-            /** Format: date-time */
-            createdAt: string;
-            /** @description The resource as the API returned it when the event happened (texts in English): a Document for `<document type>.*` and `document.*` events, a Certificate for `certificate.*` events, an AccountEmailSending for `account.*` events. */
-            data: components["schemas"]["Document"] | components["schemas"]["Certificate"] | components["schemas"]["AccountEmailSending"];
-            /**
-             * @description Mode of the resource.
-             * @enum {string}
-             */
-            environment: "test" | "live";
-            /**
-             * Format: uuid
-             * @example 01a14082-3c1d-7f0e-8b2a-6d5e4f3a2b10
-             */
-            id: string;
-            /**
-             * @example invoice.authorized
-             * @enum {string}
-             */
-            type: "invoice.authorized" | "invoice.rejected" | "purchase_settlement.authorized" | "purchase_settlement.rejected" | "credit_note.authorized" | "credit_note.rejected" | "debit_note.authorized" | "debit_note.rejected" | "waybill.authorized" | "waybill.rejected" | "withholding.authorized" | "withholding.rejected" | "certificate.verified" | "certificate.pending" | "certificate.blocked" | "certificate.revoked" | "certificate.reactivated" | "document.ride.generated" | "document.ride.failed" | "document.email.sent" | "document.email.delivered" | "document.email.bounced" | "document.email.complained" | "document.email.failed" | "account.email_paused" | "account.email_resumed";
-        };
+        Event: components["schemas"]["DocumentEvent"] | components["schemas"]["CertificateEvent"] | components["schemas"]["AccountEvent"];
         /** @description A page of events, newest first. */
         EventList: {
             data: components["schemas"]["Event"][];
@@ -2348,10 +2400,10 @@ export type components = {
         };
         FieldError: {
             /**
-             * @description Stable machine-readable reason.
+             * @description Stable machine-readable reason. New codes may be added: treat an unknown one like `invalid_value`.
              * @example required
              */
-            code: string;
+            code: components["schemas"]["FieldErrorCode"];
             /**
              * @description Path of the invalid field.
              * @example customer.id
@@ -2363,6 +2415,11 @@ export type components = {
              */
             message: string;
         };
+        /**
+         * @description Stable machine-readable reason. New codes may be added: treat an unknown one like `invalid_value`.
+         * @enum {string}
+         */
+        FieldErrorCode: "required" | "unknown_field" | "invalid_type" | "invalid_format" | "invalid_option" | "too_short" | "too_long" | "out_of_range" | "invalid_value" | "unsupported_character" | "not_found" | "invalid_decimal" | "invalid_identification" | "invalid_check_digit" | "final_consumer_not_allowed" | "not_in_force" | "too_many_additional_fields" | "reserved_name" | "amount_mismatch" | "future_date" | "date_too_early" | "date_too_late" | "discount_exceeds_amount" | "duplicate" | "vat_required" | "unsupported_tax" | "rate_mismatch" | "incompatible_issuer_profile" | "url_not_allowed" | "demo_issuer_test_only" | "demo_issuer_sequential_not_allowed" | "ruc_mismatch";
         /** @description A taxpayer (RUC) that issues documents. */
         Issuer: {
             branding: components["schemas"]["IssuerBranding"];
@@ -2674,30 +2731,67 @@ export type components = {
             /** @description Cursor of the next page (send it as `cursor`), or null on the last page. */
             nextCursor: string | null;
         };
-        /** @description RFC 9457 problem details. */
+        /** @description RFC 9457 problem details, in the language of Content-Language (`en`, or `es` with Accept-Language: es). Some codes add extension members, listed below; others may appear. */
         ProblemDetails: {
             /**
-             * @description Stable machine-readable error code, the same in every language. Branch on it, never on `type`, `title` or `detail`.
+             * @description Stable machine-readable error code, the same in every language. Branch on it, never on `type`, `title` or `detail`. New codes may be added: handle an unknown one by its HTTP status.
              * @example validation_failed
              */
             code: components["schemas"]["ErrorCode"];
+            /**
+             * @description `total_mismatch`: the total Flashpi computed.
+             * @example 111.99
+             */
+            computedTotal?: string;
             /**
              * @description Localized explanation of this occurrence.
              * @example One or more fields are invalid. See errors for details.
              */
             detail: string;
+            /**
+             * Format: uuid
+             * @description `idempotency_key_reused`: the document the Idempotency-Key already created.
+             */
+            documentId?: string;
+            /**
+             * @description `document_not_authorized`: the status of the document.
+             * @enum {string}
+             */
+            documentStatus?: "processing" | "pending_sri" | "authorized" | "rejected" | "failed" | "voided";
+            /**
+             * @description `email_sending_paused`: the mode whose email sending is paused.
+             * @enum {string}
+             */
+            environment?: "test" | "live";
             /** @description Field-level errors (may be empty). */
             errors: components["schemas"]["FieldError"][];
+            /**
+             * @description `total_mismatch`: the `expectedTotal` you sent.
+             * @example 112.00
+             */
+            expectedTotal?: string;
             /**
              * @description Path of the request.
              * @example /v1/invoices
              */
             instance: string;
+            /** @description The daily limit that was reached (`email_resend_limit_reached`, `account_email_limit_reached`, `demo_issuer_quota_exceeded`). */
+            limit?: number;
             /**
              * @description Request ID (UUIDv7); include it when contacting support.
              * @example 017f22e2-79b0-7cc3-98c4-dc0c0c07398f
              */
             requestId: string;
+            /**
+             * Format: date-time
+             * @description When the daily limit resets: the next midnight in Ecuador (the three codes above and `platform_email_limit_reached`). Retry-After gives the same in seconds.
+             */
+            resetsAt?: string;
+            /**
+             * @description `ride_not_available`: the status of the RIDE.
+             * @enum {string}
+             */
+            rideStatus?: "pending" | "generated" | "failed";
             /**
              * @description HTTP status code.
              * @example 422
@@ -2714,6 +2808,8 @@ export type components = {
              * @example https://flashpi.com.ec/docs/en/errors/validation_failed
              */
             type: string;
+        } & {
+            [key: string]: unknown;
         };
         RotateWebhookEndpointSecret: {
             /**
@@ -2871,7 +2967,7 @@ export type components = {
              */
             enabledEvents?: ("invoice.authorized" | "invoice.rejected" | "purchase_settlement.authorized" | "purchase_settlement.rejected" | "credit_note.authorized" | "credit_note.rejected" | "debit_note.authorized" | "debit_note.rejected" | "waybill.authorized" | "waybill.rejected" | "withholding.authorized" | "withholding.rejected" | "certificate.verified" | "certificate.pending" | "certificate.blocked" | "certificate.revoked" | "certificate.reactivated" | "document.ride.generated" | "document.ride.failed" | "document.email.sent" | "document.email.delivered" | "document.email.bounced" | "document.email.complained" | "document.email.failed" | "account.email_paused" | "account.email_resumed" | "*")[];
             /**
-             * @description `full` (default): the event with a snapshot of its resource in `data`. `thin`: only the event id and type (read the snapshot with GET /v1/events/{id}).
+             * @description `full` (default): the event with a snapshot of its resource in `data`. `thin`: the event without `data`, only `id`, `type`, `environment` and `createdAt` (read the snapshot with GET /v1/events/{id}).
              * @enum {string}
              */
             payloadMode?: "full" | "thin";
@@ -3166,7 +3262,7 @@ export type components = {
              */
             id: string;
             /**
-             * @description `full` (default): the event with a snapshot of its resource in `data`. `thin`: only the event id and type (read the snapshot with GET /v1/events/{id}).
+             * @description `full` (default): the event with a snapshot of its resource in `data`. `thin`: the event without `data`, only `id`, `type`, `environment` and `createdAt` (read the snapshot with GET /v1/events/{id}).
              * @enum {string}
              */
             payloadMode: "full" | "thin";
@@ -3229,19 +3325,25 @@ export type components = {
             /** Format: date-time */
             verifiedAt: string | null;
         };
-        /** @description The activation handshake of a new or moved endpoint. It is signed like every webhook; answer 2xx with `{"challenge": "<data.challenge>"}` (or the challenge as plain text). */
+        /** @description The activation handshake of an endpoint, sent when it is created, when its URL changes and on POST /v1/webhook-endpoints/{id}/verify; every attempt has a new id and challenge. It is signed like every webhook; answer 2xx with `{"challenge": "<data.challenge>"}` (or the challenge as plain text). */
         WebhookEndpointVerificationEvent: {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this attempt was sent.
+             */
             createdAt: string;
             data: {
-                /** @description Random value to echo back. */
+                /** @description Random value to echo back, new on every attempt: echo the one of this request. */
                 challenge: string;
                 /** Format: uuid */
                 webhookEndpointId: string;
             };
             /** @enum {string} */
             environment: "test" | "live";
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description This attempt's id, also its webhook-id header: new on every attempt.
+             */
             id: string;
             /** @constant */
             type: "webhook_endpoint.verification";
@@ -3387,14 +3489,28 @@ export type components = {
         };
     };
     responses: never;
-    parameters: never;
+    parameters: {
+        /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+        AcceptLanguage: string;
+        /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+        CorrelationId: string;
+    };
     requestBodies: never;
-    headers: never;
+    headers: {
+        /** @description Flashpi's ID of the request, a UUIDv7 (also `requestId` in errors). Include it when you contact support. */
+        RequestId: string;
+        /** @description Whole seconds to wait before trying again. */
+        RetryAfter: number;
+        /** @description RFC 6750 challenge: `Bearer realm="flashpi"`, plus `error="invalid_token"` with `invalid_api_key`. */
+        WwwAuthenticate: string;
+    };
     pathItems: never;
 };
 export type AccountEmailSending = components['schemas']['AccountEmailSending'];
 export type AccountEmailSendingWindow = components['schemas']['AccountEmailSendingWindow'];
+export type AccountEvent = components['schemas']['AccountEvent'];
 export type Certificate = components['schemas']['Certificate'];
+export type CertificateEvent = components['schemas']['CertificateEvent'];
 export type CertificateList = components['schemas']['CertificateList'];
 export type CertificateRejection = components['schemas']['CertificateRejection'];
 export type CertificateRevocation = components['schemas']['CertificateRevocation'];
@@ -3417,6 +3533,7 @@ export type DocumentCounterparty = components['schemas']['DocumentCounterparty']
 export type DocumentEmail = components['schemas']['DocumentEmail'];
 export type DocumentEmailDelivery = components['schemas']['DocumentEmailDelivery'];
 export type DocumentEmailWarning = components['schemas']['DocumentEmailWarning'];
+export type DocumentEvent = components['schemas']['DocumentEvent'];
 export type DocumentFailure = components['schemas']['DocumentFailure'];
 export type DocumentItem = components['schemas']['DocumentItem'];
 export type DocumentList = components['schemas']['DocumentList'];
@@ -3437,6 +3554,7 @@ export type Event = components['schemas']['Event'];
 export type EventList = components['schemas']['EventList'];
 export type EventThin = components['schemas']['EventThin'];
 export type FieldError = components['schemas']['FieldError'];
+export type FieldErrorCode = components['schemas']['FieldErrorCode'];
 export type Issuer = components['schemas']['Issuer'];
 export type IssuerBranding = components['schemas']['IssuerBranding'];
 export type IssuerBrandingInput = components['schemas']['IssuerBrandingInput'];
@@ -3486,14 +3604,23 @@ export type WithholdingBananaBoxes = components['schemas']['WithholdingBananaBox
 export type WithholdingDividends = components['schemas']['WithholdingDividends'];
 export type WithholdingForeignPayment = components['schemas']['WithholdingForeignPayment'];
 export type WithholdingPayment = components['schemas']['WithholdingPayment'];
+export type ParameterAcceptLanguage = components['parameters']['AcceptLanguage'];
+export type ParameterCorrelationId = components['parameters']['CorrelationId'];
+export type HeaderRequestId = components['headers']['RequestId'];
+export type HeaderRetryAfter = components['headers']['RetryAfter'];
+export type HeaderWwwAuthenticate = components['headers']['WwwAuthenticate'];
 export type $defs = Record<string, never>;
 export interface operations {
     creditNotesCreate: {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path?: never;
             cookie?: never;
@@ -3507,8 +3634,11 @@ export interface operations {
             /** @description Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`). */
             200: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -3518,15 +3648,18 @@ export interface operations {
             /** @description Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first). */
             202: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -3535,16 +3668,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3562,8 +3696,45 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more. */
+            429: {
+                headers: {
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3577,8 +3748,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path?: never;
             cookie?: never;
@@ -3592,8 +3767,11 @@ export interface operations {
             /** @description Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`). */
             200: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -3603,15 +3781,18 @@ export interface operations {
             /** @description Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first). */
             202: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -3620,16 +3801,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3647,8 +3829,45 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more. */
+            429: {
+                headers: {
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3680,7 +3899,12 @@ export interface operations {
                 /** @description Only this document type. */
                 type?: "invoice" | "purchase_settlement" | "credit_note" | "debit_note" | "waybill" | "withholding";
             };
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -3688,15 +3912,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentList"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -3726,7 +3952,12 @@ export interface operations {
     documentsGet: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 documentId: string;
             };
@@ -3736,15 +3967,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -3775,8 +4008,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path: {
                 documentId: string;
@@ -3792,13 +4029,16 @@ export interface operations {
             /** @description The email is queued. */
             202: {
                 headers: {
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -3807,9 +4047,10 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -3843,6 +4084,24 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
             /** @description idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
@@ -3855,6 +4114,7 @@ export interface operations {
             /** @description email_resend_limit_reached: the document's resends of today are used up. account_email_limit_reached: the account's emails of today in this mode are used up. Both carry `Retry-After`, `limit` and `resetsAt`. platform_email_limit_reached: Flashpi's emails of today across all accounts are used up; it carries `Retry-After` and `resetsAt`. */
             429: {
                 headers: {
+                    "Retry-After": components["headers"]["RetryAfter"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -3866,7 +4126,12 @@ export interface operations {
     documentsGetPdf: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 documentId: string;
             };
@@ -3877,15 +4142,17 @@ export interface operations {
             /** @description The RIDE as a PDF/A-2b file. */
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/pdf": string;
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -3924,7 +4191,12 @@ export interface operations {
     documentsGetXml: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 documentId: string;
             };
@@ -3937,15 +4209,17 @@ export interface operations {
                 headers: {
                     /** @description `authorized`, `signed` or `unsigned`. */
                     "Flashpi-Xml-Kind"?: "authorized" | "signed" | "unsigned";
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/xml": string;
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -3988,7 +4262,12 @@ export interface operations {
                 /** @description Only events of this type. */
                 type?: "invoice.authorized" | "invoice.rejected" | "purchase_settlement.authorized" | "purchase_settlement.rejected" | "credit_note.authorized" | "credit_note.rejected" | "debit_note.authorized" | "debit_note.rejected" | "waybill.authorized" | "waybill.rejected" | "withholding.authorized" | "withholding.rejected" | "certificate.verified" | "certificate.pending" | "certificate.blocked" | "certificate.revoked" | "certificate.reactivated" | "document.ride.generated" | "document.ride.failed" | "document.email.sent" | "document.email.delivered" | "document.email.bounced" | "document.email.complained" | "document.email.failed" | "account.email_paused" | "account.email_resumed";
             };
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -3996,15 +4275,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["EventList"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4034,7 +4315,12 @@ export interface operations {
     eventsGet: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 eventId: string;
             };
@@ -4044,15 +4330,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Event"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4083,8 +4371,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path?: never;
             cookie?: never;
@@ -4098,8 +4390,11 @@ export interface operations {
             /** @description Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`). */
             200: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4109,15 +4404,18 @@ export interface operations {
             /** @description Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first). */
             202: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4126,16 +4424,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4153,8 +4452,45 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more. */
+            429: {
+                headers: {
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4168,8 +4504,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path?: never;
             cookie?: never;
@@ -4194,8 +4534,11 @@ export interface operations {
             /** @description Accepted for verification: status `verifying`. */
             202: {
                 headers: {
-                    /** @description Path of the onboarding. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the onboarding: /v1/issuer-onboardings/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4211,9 +4554,10 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4270,7 +4614,12 @@ export interface operations {
     issuerOnboardingsGet: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 onboardingId: string;
             };
@@ -4280,15 +4629,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["IssuerOnboarding"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4319,8 +4670,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path: {
                 onboardingId: string;
@@ -4335,15 +4690,18 @@ export interface operations {
         responses: {
             201: {
                 headers: {
-                    /** @description Path of the issuer. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the issuer: /v1/issuers/{issuer.id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["CompletedIssuerOnboarding"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4352,9 +4710,10 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4388,6 +4747,24 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
             /** @description validation_failed: a field of a new issuer is missing or invalid, `ruc` is required, or `ruc` does not match the certificate (ruc_mismatch). Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
@@ -4407,7 +4784,12 @@ export interface operations {
                 /** @description Maximum number of items to return. */
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -4415,15 +4797,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["IssuerList"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4454,8 +4838,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path?: never;
             cookie?: never;
@@ -4468,13 +4856,16 @@ export interface operations {
         responses: {
             201: {
                 headers: {
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Issuer"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4483,9 +4874,10 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4510,6 +4902,24 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
             /** @description validation_failed: see errors. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
@@ -4524,7 +4934,12 @@ export interface operations {
     issuersGet: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 issuerId: string;
             };
@@ -4534,15 +4949,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Issuer"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4572,7 +4989,12 @@ export interface operations {
     issuersDelete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 issuerId: string;
             };
@@ -4583,13 +5005,15 @@ export interface operations {
             /** @description Deleted. */
             204: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4628,7 +5052,12 @@ export interface operations {
     issuersUpdate: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 issuerId: string;
             };
@@ -4642,15 +5071,26 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Issuer"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4668,6 +5108,24 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4694,7 +5152,12 @@ export interface operations {
                 /** @description Maximum number of items to return. */
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 issuerId: string;
             };
@@ -4704,15 +5167,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["CertificateList"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4737,14 +5202,27 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            /** @description validation_failed: invalid limit or cursor. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     certificatesUpload: {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path: {
                 issuerId: string;
@@ -4771,8 +5249,11 @@ export interface operations {
             /** @description Accepted for checking: status `processing`. */
             202: {
                 headers: {
-                    /** @description Path of the certificate. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the certificate: /v1/issuers/{issuerId}/certificates/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4788,9 +5269,10 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4847,7 +5329,12 @@ export interface operations {
     certificatesGet: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 certificateId: string;
                 issuerId: string;
@@ -4858,15 +5345,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Certificate"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4901,7 +5390,12 @@ export interface operations {
                 /** @description Maximum number of items to return. */
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 issuerId: string;
             };
@@ -4911,15 +5405,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["EstablishmentList"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -4959,8 +5455,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path: {
                 issuerId: string;
@@ -4975,13 +5475,16 @@ export interface operations {
         responses: {
             201: {
                 headers: {
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Establishment"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4990,9 +5493,10 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5026,6 +5530,24 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
             /** @description validation_failed: see errors. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
@@ -5040,7 +5562,12 @@ export interface operations {
     establishmentsGet: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 establishmentId: string;
                 issuerId: string;
@@ -5051,15 +5578,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Establishment"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5089,7 +5618,12 @@ export interface operations {
     establishmentsDelete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 establishmentId: string;
                 issuerId: string;
@@ -5101,13 +5635,15 @@ export interface operations {
             /** @description Deleted. */
             204: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5146,7 +5682,12 @@ export interface operations {
     establishmentsUpdate: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 establishmentId: string;
                 issuerId: string;
@@ -5161,15 +5702,26 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Establishment"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5187,6 +5739,24 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5213,7 +5783,12 @@ export interface operations {
                 /** @description Maximum number of items to return. */
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 establishmentId: string;
                 issuerId: string;
@@ -5224,15 +5799,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["EmissionPointList"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5272,8 +5849,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path: {
                 establishmentId: string;
@@ -5289,13 +5870,16 @@ export interface operations {
         responses: {
             201: {
                 headers: {
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["EmissionPoint"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -5304,9 +5888,10 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5340,6 +5925,24 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
             /** @description validation_failed: see errors. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
@@ -5354,7 +5957,12 @@ export interface operations {
     emissionPointsGet: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 emissionPointId: string;
                 establishmentId: string;
@@ -5366,15 +5974,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["EmissionPoint"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5404,7 +6014,12 @@ export interface operations {
     emissionPointsDelete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 emissionPointId: string;
                 establishmentId: string;
@@ -5417,13 +6032,15 @@ export interface operations {
             /** @description Deleted. */
             204: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5463,8 +6080,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path?: never;
             cookie?: never;
@@ -5478,8 +6099,11 @@ export interface operations {
             /** @description Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`). */
             200: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5489,15 +6113,18 @@ export interface operations {
             /** @description Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first). */
             202: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -5506,16 +6133,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5533,8 +6161,45 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more. */
+            429: {
+                headers: {
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5547,7 +6212,12 @@ export interface operations {
     statusGet: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -5555,6 +6225,7 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5567,8 +6238,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path?: never;
             cookie?: never;
@@ -5582,8 +6257,11 @@ export interface operations {
             /** @description Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`). */
             200: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5593,15 +6271,18 @@ export interface operations {
             /** @description Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first). */
             202: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -5610,16 +6291,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5637,8 +6319,45 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more. */
+            429: {
+                headers: {
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5656,7 +6375,12 @@ export interface operations {
                 /** @description Maximum number of items to return. */
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -5664,15 +6388,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookEndpointList"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5703,8 +6429,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path?: never;
             cookie?: never;
@@ -5717,13 +6447,16 @@ export interface operations {
         responses: {
             201: {
                 headers: {
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookEndpoint"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -5732,9 +6465,10 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5759,6 +6493,24 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
             /** @description validation_failed: see errors (url_not_allowed for a URL that is not public HTTPS). Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
@@ -5773,7 +6525,12 @@ export interface operations {
     webhookEndpointsGet: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 endpointId: string;
             };
@@ -5783,15 +6540,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookEndpoint"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5821,7 +6580,12 @@ export interface operations {
     webhookEndpointsDelete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 endpointId: string;
             };
@@ -5832,13 +6596,15 @@ export interface operations {
             /** @description Deleted. */
             204: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5868,7 +6634,12 @@ export interface operations {
     webhookEndpointsUpdate: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 endpointId: string;
             };
@@ -5882,15 +6653,26 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookEndpoint"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5924,6 +6706,24 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
             /** @description validation_failed: see errors. */
             422: {
                 headers: {
@@ -5949,7 +6749,12 @@ export interface operations {
                 /** @description Only deliveries in this status. */
                 status?: "pending" | "succeeded" | "failed";
             };
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 endpointId: string;
             };
@@ -5959,15 +6764,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookDeliveryList"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -6006,7 +6813,12 @@ export interface operations {
     webhookEndpointsDeliveriesGet: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 deliveryId: string;
                 endpointId: string;
@@ -6017,15 +6829,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookDeliveryDetail"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -6056,8 +6870,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path: {
                 deliveryId: string;
@@ -6069,6 +6887,9 @@ export interface operations {
         responses: {
             202: {
                 headers: {
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -6084,9 +6905,10 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -6135,8 +6957,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path: {
                 endpointId: string;
@@ -6151,13 +6977,16 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookEndpoint"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6166,9 +6995,10 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -6202,6 +7032,24 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
             /** @description validation_failed: see errors. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
@@ -6216,7 +7064,12 @@ export interface operations {
     webhookEndpointsSecret: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
+            };
             path: {
                 endpointId: string;
             };
@@ -6226,15 +7079,17 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookEndpointSecret"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -6265,8 +7120,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path: {
                 endpointId: string;
@@ -6277,6 +7136,9 @@ export interface operations {
         responses: {
             202: {
                 headers: {
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -6292,9 +7154,10 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -6343,8 +7206,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
+                /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
+                "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
             };
             path?: never;
             cookie?: never;
@@ -6358,8 +7225,11 @@ export interface operations {
             /** @description Sync mode only: the SRI settled the document within the wait (status `authorized`, `rejected` or `failed`). */
             200: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -6369,15 +7239,18 @@ export interface operations {
             /** @description Accepted: the document is stored and is being processed (status `processing`, or `pending_sri` when a sync wait ended first). */
             202: {
                 headers: {
-                    /** @description Path of the document: /v1/documents/{id}. */
+                    /** @description `true` when this is the stored answer of an earlier request with the same Idempotency-Key (same status and body, no Location). Absent otherwise. */
+                    "Idempotent-Replayed"?: "true";
+                    /** @description Path of the document: /v1/documents/{id}. Not sent on an idempotent replay (Idempotent-Replayed: true): build it from the body as shown. */
                     Location?: string;
+                    "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
                 };
             };
-            /** @description invalid_idempotency_key: the Idempotency-Key header is malformed. */
+            /** @description `malformed_json`: the body is not valid JSON. `bad_request`: the body does not decompress with its `Content-Encoding`. Or invalid_idempotency_key: the Idempotency-Key header is malformed. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6386,16 +7259,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key is missing, malformed, unknown or revoked. */
+            /** @description `authentication_required`: no `Authorization: Bearer` header. `invalid_api_key`: the key is malformed, unknown or revoked. */
             401: {
                 headers: {
+                    "WWW-Authenticate": components["headers"]["WwwAuthenticate"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). Or `sandbox_not_enabled`: `issuerId` is the shared demo issuer (sandbox) and the account's sandbox is not enabled yet (its owner has not verified their email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6413,8 +7287,45 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description `payload_too_large`: the JSON body is larger than 1 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unsupported_media_type`: the body declares a charset that does not start with `utf-` (for example `latin1`, or `utf8` without the hyphen) or a `Content-Encoding` other than gzip, deflate or br. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_quota_exceeded`: `issuerId` is the shared demo issuer (sandbox) and the account already issued today's test documents with it (days follow the calendar in Ecuador). It carries `Retry-After`, `limit` and `resetsAt`; use your own issuer to issue more. */
+            429: {
+                headers: {
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `demo_issuer_unavailable`: `issuerId` is the shared demo issuer (sandbox) and it cannot sign test documents now (no usable test certificate). Nothing is created; retry later or use your own issuer. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6428,7 +7339,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6440,7 +7351,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["AccountEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6457,7 +7368,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6469,7 +7380,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["AccountEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6486,7 +7397,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6498,7 +7409,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["CertificateEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6515,7 +7426,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6527,7 +7438,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["CertificateEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6544,7 +7455,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6556,7 +7467,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["CertificateEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6573,7 +7484,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6585,7 +7496,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["CertificateEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6602,7 +7513,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6614,7 +7525,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["CertificateEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6631,7 +7542,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6643,7 +7554,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6660,7 +7571,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6672,7 +7583,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6689,7 +7600,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6701,7 +7612,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6718,7 +7629,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6730,7 +7641,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6747,7 +7658,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6759,7 +7670,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6776,7 +7687,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6788,7 +7699,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6805,7 +7716,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6817,7 +7728,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6834,7 +7745,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6846,7 +7757,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6863,7 +7774,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6875,7 +7786,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6892,7 +7803,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6904,7 +7815,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6921,7 +7832,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6933,7 +7844,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6950,7 +7861,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6962,7 +7873,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -6979,7 +7890,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -6991,7 +7902,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -7008,7 +7919,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -7020,7 +7931,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -7037,7 +7948,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -7049,7 +7960,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -7066,7 +7977,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -7078,7 +7989,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -7095,7 +8006,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -7107,7 +8018,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -7124,7 +8035,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The id of this handshake attempt (UUIDv7), also the body `id`: new on every attempt and not an event (GET /v1/events does not know it). It only enters the signature. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -7157,7 +8068,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -7169,7 +8080,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
@@ -7186,7 +8097,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description The event id (UUIDv7), the same on every attempt: deduplicate on it. */
+                /** @description The event id (UUIDv7), the same on every attempt and replay: deduplicate on it. */
                 "webhook-id": string;
                 /** @description Space-separated `v1,<base64>` signatures: HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the base64-decoded part of the whsec_ secret. Accept the request if any of them matches (there is one per valid secret during a rotation). */
                 "webhook-signature": string;
@@ -7198,7 +8109,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Event"] | components["schemas"]["EventThin"];
+                "application/json": components["schemas"]["DocumentEvent"] | components["schemas"]["EventThin"];
             };
         };
         responses: {
