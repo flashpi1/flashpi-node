@@ -1,0 +1,9 @@
+{
+  // The published code: also checked with isolatedDeclarations, so every export has an
+  // explicit type and tsdown writes the .d.ts files without the TypeScript compiler.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "isolatedDeclarations": true
+  },
+  "include": ["src"]
+}

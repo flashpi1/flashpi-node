@@ -1,0 +1,13 @@
+# Single-package repository. This file only holds pnpm settings.
+
+# pnpm 10 blocks dependency lifecycle scripts by default; allow only the packages that need
+# them. workerd (Miniflare's Cloudflare Workers runtime, used by the runtime smoke test)
+# installs its platform binary.
+onlyBuiltDependencies:
+  - workerd
+
+peerDependencyRules:
+  allowedVersions:
+    # openapi-typescript 7.13 declares typescript ^5 but generates with TypeScript 6 (its
+    # output is checked by `pnpm typecheck`). TypeScript 7 does not work with it.
+    openapi-typescript>typescript: '6'
