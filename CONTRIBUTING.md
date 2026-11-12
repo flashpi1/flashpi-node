@@ -71,10 +71,19 @@ npm trusted publishing (OIDC, no token) and provenance.
 
 While the version is 0.x, `feat:` raises the minor version and `fix:` the patch version.
 
+Pull requests opened by GitHub Actions (the release PR and the OpenAPI sync PR) start no
+workflow by themselves, so the Release and OpenAPI sync workflows dispatch `ci.yml` (and, for a
+release, `live.yml`) on their branch. To run them again by hand:
+`gh workflow run ci.yml --ref <branch>`.
+
+The publish job runs in the `npm` environment, which waits for a maintainer's approval in
+GitHub before it publishes.
+
 ### The first release
 
 npm can only trust a publisher for a package that already exists, so 0.1.0 is published by
-hand by a maintainer of the `@flashpi` npm organization, from a clean checkout of its tag:
+hand. When its release PR is merged, reject the publish job's approval, then a maintainer of
+the `@flashpi` npm organization publishes from a clean checkout of the `v0.1.0` tag:
 
 ```bash
 pnpm install --frozen-lockfile && pnpm build && pnpm pack:check

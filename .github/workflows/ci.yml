@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Pull requests opened by GitHub Actions (release-please, OpenAPI sync) do not start
+  # workflows, so those workflows dispatch this one on their branch.
+  workflow_dispatch:
 
 permissions:
   contents: read

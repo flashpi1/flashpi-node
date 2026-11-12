@@ -6,7 +6,8 @@ name: OpenAPI sync
 # updates) a pull request with the change.
 #
 # Pull requests opened with GITHUB_TOKEN do not start other workflows, so this job runs the
-# checks itself and reports them in the PR. Push an empty commit to the branch to run CI too.
+# checks itself, reports them in the PR, and dispatches CI on the branch (its checks are
+# required on main).
 on:
   schedule:
     - cron: '17 11 * * *'
@@ -27,6 +28,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      actions: write
     env:
       BRANCH: chore/openapi-sync
     steps:
@@ -86,3 +88,4 @@ jobs:
           else
             gh pr create --head "$BRANCH" --title "chore: sync the Flashpi API contract" --body "$body"
           fi
+          gh workflow run ci.yml --ref "$BRANCH"

@@ -1,14 +1,12 @@
 name: Live API test
 
 # Runs test/live against the real Flashpi API in test mode (SRI pruebas): it issues ONE test
-# invoice on the shared demo issuer (daily quota of 50 per account). So it only runs on the
-# release PR that release-please opens, or by hand.
+# invoice on the shared demo issuer (daily quota of 50 per account). So it only runs when the
+# Release workflow dispatches it on release-please's pull request, or by hand.
 #
 # Needs the repository secret FLASHPI_TEST_API_KEY (an fp_test_ key with read_write access)
 # and the repository variable FLASHPI_DEMO_ISSUER_ID (the demo issuer id from the console).
 on:
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -21,7 +19,6 @@ concurrency:
 jobs:
   live:
     name: SDK against the live API (test mode)
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
