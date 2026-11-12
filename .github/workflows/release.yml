@@ -1,0 +1,85 @@
+name: Release
+
+# release-please keeps a release PR open with the next version and its CHANGELOG, built from
+# the Conventional Commits merged into main. Merging that PR is the approval: it tags the
+# version, creates the GitHub release and publishes it to npm here.
+#
+# npm trusted publishing (OIDC): no npm token is stored anywhere. npmjs.com trusts this
+# workflow file of flashpi1/flashpi-node, and the package gets a provenance statement. The
+# trusted publisher can only be configured once the package exists, so 0.1.0 is published by
+# hand first (see CONTRIBUTING.md).
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release PR
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      prs_created: ${{ steps.release.outputs.prs_created }}
+      pr: ${{ steps.release.outputs.pr }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # A pull request opened with GITHUB_TOKEN starts no workflow, but a dispatched one runs: start
+  # CI (its checks are required on main) and the live API test on the release branch.
+  check-release-pr:
+    name: Check the release PR
+    needs: release-please
+    if: needs.release-please.outputs.prs_created == 'true' && needs.release-please.outputs.pr != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BRANCH: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
+    steps:
+      - run: |
+          gh workflow run ci.yml --ref "$BRANCH"
+          gh workflow run live.yml --ref "$BRANCH"
+
+  publish:
+    name: Publish to npm
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      # Node 24 bundles npm 11, which publishes through OIDC. No registry-url (it would write
+      # an .npmrc with a token placeholder) and no package cache in a publish job.
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Publish
+        run: npm publish --access public

@@ -1,0 +1,11 @@
+{
+  // test/types/consumer.ts as a consumer project compiles it: the DOM library instead of
+  // @types/node, and exactOptionalPropertyTypes.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": [],
+    "exactOptionalPropertyTypes": true
+  },
+  "include": ["test/types"]
+}
