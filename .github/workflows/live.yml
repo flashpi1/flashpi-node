@@ -1,0 +1,48 @@
+name: Live API test
+
+# Runs test/live against the real Flashpi API in test mode (SRI pruebas): it issues ONE test
+# invoice on the shared demo issuer (daily quota of 50 per account). So it only runs on the
+# release PR that release-please opens, or by hand.
+#
+# Needs the repository secret FLASHPI_TEST_API_KEY (an fp_test_ key with read_write access)
+# and the repository variable FLASHPI_DEMO_ISSUER_ID (the demo issuer id from the console).
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-api
+  cancel-in-progress: false
+
+jobs:
+  live:
+    name: SDK against the live API (test mode)
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'release-please--')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check the secret and the variable are set
+        env:
+          FLASHPI_TEST_API_KEY: ${{ secrets.FLASHPI_TEST_API_KEY }}
+          FLASHPI_DEMO_ISSUER_ID: ${{ vars.FLASHPI_DEMO_ISSUER_ID }}
+        run: |
+          if [ -z "$FLASHPI_TEST_API_KEY" ] || [ -z "$FLASHPI_DEMO_ISSUER_ID" ]; then
+            echo "::error::Set the FLASHPI_TEST_API_KEY secret and the FLASHPI_DEMO_ISSUER_ID variable"
+            exit 1
+          fi
+      - name: Run the live suite
+        env:
+          FLASHPI_TEST_API_KEY: ${{ secrets.FLASHPI_TEST_API_KEY }}
+          FLASHPI_DEMO_ISSUER_ID: ${{ vars.FLASHPI_DEMO_ISSUER_ID }}
+        run: pnpm test:live

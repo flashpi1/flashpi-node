@@ -1,0 +1,88 @@
+name: OpenAPI sync
+
+# Every day, downloads the public OpenAPI document of the Flashpi API
+# (https://flashpi.com.ec/docs/openapi.json), regenerates src/generated/openapi.ts and, when
+# something changed, checks the SDK still compiles and passes its tests, then opens (or
+# updates) a pull request with the change.
+#
+# Pull requests opened with GITHUB_TOKEN do not start other workflows, so this job runs the
+# checks itself and reports them in the PR. Push an empty commit to the branch to run CI too.
+on:
+  schedule:
+    - cron: '17 11 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openapi-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Sync the API contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      BRANCH: chore/openapi-sync
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Download the document and regenerate the types
+        run: pnpm openapi:sync
+
+      - name: Look for changes
+        id: diff
+        run: |
+          if git diff --quiet -- openapi src/generated; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --stat -- openapi src/generated
+          fi
+
+      - name: Check the SDK with the new contract
+        id: checks
+        if: steps.diff.outputs.changed == 'true'
+        continue-on-error: true
+        run: pnpm typecheck && pnpm lint && pnpm test && pnpm build
+
+      - name: Open or update the pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECKS: ${{ steps.checks.outcome }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add openapi src/generated
+          git commit -m "chore: sync the Flashpi API contract"
+          git push --force origin "$BRANCH"
+          if [ "$CHECKS" = success ]; then
+            result="Typecheck, lint, tests and build passed with the new contract."
+          else
+            result="Typecheck, lint, tests or build FAILED with the new contract: see the workflow run. The SDK needs changes before this can merge."
+          fi
+          body="The public OpenAPI document of the Flashpi API changed. This updates openapi/openapi.json and the generated types.
+
+          ${result}
+
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          Review new operations or fields: they may need a method or a hand-written type in src/."
+          if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit "$BRANCH" --body "$body"
+          else
+            gh pr create --head "$BRANCH" --title "chore: sync the Flashpi API contract" --body "$body"
+          fi
