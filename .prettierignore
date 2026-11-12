@@ -3,3 +3,5 @@ coverage/
 pnpm-lock.yaml
 openapi/
 src/generated/
+# Written by release-please in its own format
+CHANGELOG.md
