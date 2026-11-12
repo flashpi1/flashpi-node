@@ -29,6 +29,8 @@
   "types": "./dist/index.d.cts",
   "exports": {
     ".": {
+      "bun": "./dist/index.mjs",
+      "module-sync": "./dist/index.mjs",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
@@ -45,12 +47,15 @@
     "node": ">=22"
   },
   "packageManager": "pnpm@10.30.0",
+  "volta": {
+    "node": "24.22.0"
+  },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json && tsc --noEmit -p tsconfig.consumer.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -58,7 +63,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
-    "test:runtimes": "node test/runtimes/esm.mjs && node test/runtimes/cjs.cjs && node test/runtimes/workers.mjs",
+    "test:runtimes": "node test/runtimes/esm.mjs && node test/runtimes/cjs.cjs && node test/runtimes/single-copy.mjs && node test/runtimes/workers.mjs",
     "test:live": "vitest run --config vitest.live.config.ts",
     "openapi:sync": "node scripts/openapi.mjs sync",
     "openapi:generate": "node scripts/openapi.mjs generate",

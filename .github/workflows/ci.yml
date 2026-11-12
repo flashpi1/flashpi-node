@@ -52,6 +52,9 @@ jobs:
       - name: Build (with publint and attw)
         run: pnpm build
 
+      - name: Check what npm would publish
+        run: pnpm pack:check
+
       - name: Keep the build for the runtime checks
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -81,10 +84,11 @@ jobs:
         with:
           name: dist
           path: dist/
-      - name: Load the build with import and require
+      - name: Load the build with import and require, as one copy
         run: |
           node test/runtimes/esm.mjs
           node test/runtimes/cjs.cjs
+          node test/runtimes/single-copy.mjs
 
   runtimes:
     name: Bun, Deno and Cloudflare Workers
@@ -109,6 +113,7 @@ jobs:
         run: |
           bun test/runtimes/esm.mjs
           bun test/runtimes/cjs.cjs
+          bun test/runtimes/single-copy.mjs
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
