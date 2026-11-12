@@ -12,7 +12,10 @@ export type ApiErrorCode = ErrorCode | (string & {})
  */
 export type Problem = ProblemDetails & Record<string, unknown>
 
-/** Every error this package throws extends this class. */
+/**
+ * Every error this package throws extends this class, except when a call is cancelled through
+ * its `signal`: then it rejects with the signal's own reason.
+ */
 export class FlashpiError extends Error {
   override readonly name: string = 'FlashpiError'
   /**

@@ -158,17 +158,17 @@ function environmentOf(apiKey: string | undefined, envDenied: unknown): Environm
  * simulated DOM (jsdom or happy-dom in tests) on Node.js, Bun or Deno is still a server.
  */
 function assertServerRuntime(): void {
+  // Read from values a page element cannot fake (`<div id="Deno">` shows up as window.Deno).
   const scope = globalThis as {
     window?: unknown
     document?: unknown
-    process?: { versions?: { node?: unknown } }
-    Deno?: unknown
-    Bun?: unknown
+    process?: { versions?: { node?: unknown; bun?: unknown } }
+    Deno?: { version?: { deno?: unknown } }
   }
   const serverRuntime =
     typeof scope.process?.versions?.node === 'string' ||
-    typeof scope.Deno !== 'undefined' ||
-    typeof scope.Bun !== 'undefined'
+    typeof scope.process?.versions?.bun === 'string' ||
+    typeof scope.Deno?.version?.deno === 'string'
   if (
     !serverRuntime &&
     typeof scope.window !== 'undefined' &&

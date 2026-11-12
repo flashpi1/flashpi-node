@@ -115,6 +115,10 @@ export class HttpClient {
     const started = Date.now()
     let retries = 0
     let waits = 0
+    // Whether an earlier attempt may have reached the API without its answer reaching us (a
+    // network error, a timeout, or a 5xx from a proxy). Only then can a 409
+    // idempotency_key_in_progress be this call's own attempt still running.
+    let unanswered = false
 
     for (let attempt = 0; ; attempt++) {
       const init: RequestInit = {
@@ -130,6 +134,8 @@ export class HttpClient {
         if (!(result instanceof APIError)) return result
         failure = result
       } catch (error) {
+        // The caller's own abort reason goes back untouched.
+        if (options.signal?.aborted && error === options.signal.reason) throw error
         if (error instanceof FlashpiError) error.idempotencyKey = idempotencyKey
         if (!(error instanceof ConnectionError)) throw error
         failure = error
@@ -137,21 +143,40 @@ export class HttpClient {
       failure.idempotencyKey = idempotencyKey
 
       if (attempt > 0 && failure instanceof APIError) {
-        const recovered = await this.#recover(spec, failure, options)
+        let recovered: WithResponse<T> | null
+        try {
+          recovered = await this.#recover(spec, failure, options)
+        } catch (error) {
+          // The document exists but could not be read: keep the key on the error, so trying
+          // again later with it returns the document instead of issuing another.
+          if (error instanceof FlashpiError) error.idempotencyKey = idempotencyKey
+          throw error
+        }
         if (recovered) return recovered
 
-        // An earlier attempt of this call is still running on the API (a sync issue whose
-        // answer was lost): wait for it with the same key instead of giving up, until this
-        // call's time is up. These checks do not count as retries.
-        if (failure.status === 409 && failure.code === 'idempotency_key_in_progress') {
+        // This call's earlier attempt is still running on the API (a sync issue whose answer
+        // was lost): wait for it with the same key while this call has time left. These checks
+        // do not count as retries; once the time is up, the normal retry rules apply.
+        if (
+          unanswered &&
+          failure.status === 409 &&
+          failure.code === 'idempotency_key_in_progress'
+        ) {
           const wait = Math.min(IN_PROGRESS_FIRST_WAIT_MS * 2 ** waits, IN_PROGRESS_MAX_WAIT_MS)
-          if (Date.now() + wait - started > timeout) throw failure
-          waits++
-          await sleep(wait, options.signal)
-          continue
+          if (Date.now() + wait - started <= timeout) {
+            waits++
+            await sleep(wait, options.signal)
+            continue
+          }
         }
       }
 
+      if (
+        failure instanceof ConnectionError ||
+        (failure instanceof APIError && failure.status >= 500 && failure.problem === null)
+      ) {
+        unanswered = true
+      }
       const delay = retryDelay(failure, retries)
       if (delay === null || retries >= maxRetries) throw failure
       retries++

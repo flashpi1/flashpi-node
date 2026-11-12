@@ -348,3 +348,117 @@ describe('webhook hardening', () => {
     ).resolves.toBeUndefined()
   })
 })
+
+describe('second review', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps the key on the error when the recovered document cannot be read', async () => {
+    const { flashpi, sent } = client([
+      new TypeError('reset'),
+      problem(422, 'idempotency_key_reused', { documentId: OTHER_ID }),
+      new TypeError('reset'),
+      new TypeError('reset'),
+      new TypeError('reset'),
+    ])
+    const { error } = await settle(flashpi.invoices.create({} as never))
+    expect(error).toBeInstanceOf(ConnectionError)
+    expect((error as ConnectionError).idempotencyKey).toBe(sent[0]?.headers.get('idempotency-key'))
+  })
+
+  it('retries a 409 in progress normally when the attempt timed out with the time spent', async () => {
+    const hang = (request: { signal: AbortSignal | null | undefined }): Promise<Response> =>
+      new Promise((_, reject) => {
+        request.signal?.addEventListener('abort', () => {
+          reject(new DOMException('aborted', 'AbortError'))
+        })
+      })
+    const { flashpi, sent } = client(
+      [hang, problem(409, 'idempotency_key_in_progress'), json(documentBody(), 202)],
+      { timeout: 10_000 },
+    )
+    const { value } = await settle(flashpi.invoices.create({} as never))
+    expect(value).toMatchObject({ id: ID })
+    expect(sent).toHaveLength(3)
+  })
+
+  it('does not wait on another process’s attempt, even after its first 409', async () => {
+    const { flashpi, sent } = client([
+      problem(409, 'idempotency_key_in_progress'),
+      problem(409, 'idempotency_key_in_progress'),
+      problem(409, 'idempotency_key_in_progress'),
+      json({}, 202),
+    ])
+    const { error } = await settle(
+      flashpi.invoices.create({} as never, { idempotencyKey: 'order-1' }),
+    )
+    expect(error).toBeInstanceOf(ConflictError)
+    expect(sent).toHaveLength(3)
+  })
+
+  it('waits after a 5xx without Problem Details (a proxy lost the answer)', async () => {
+    const { flashpi, sent } = client([
+      new Response('<html>502 Bad Gateway</html>', { status: 502 }),
+      problem(409, 'idempotency_key_in_progress'),
+      problem(409, 'idempotency_key_in_progress'),
+      problem(409, 'idempotency_key_in_progress'),
+      json(documentBody(), 202),
+    ])
+    const { value } = await settle(flashpi.invoices.create({} as never))
+    expect(value).toMatchObject({ id: ID })
+    expect(sent).toHaveLength(5)
+  })
+
+  it('leaves the caller’s abort reason untouched', async () => {
+    const reason = new FlashpiError('stop the batch')
+    reason.idempotencyKey = 'order-1'
+    const controller = new AbortController()
+    controller.abort(reason)
+    const { flashpi } = client([json({})])
+    const { error } = await settle(
+      flashpi.invoices.create({} as never, {
+        idempotencyKey: 'order-2',
+        signal: controller.signal,
+      }),
+    )
+    expect(error).toBe(reason)
+    expect(reason.idempotencyKey).toBe('order-1')
+  })
+
+  it.each(['Deno', 'Bun'])(
+    'is not fooled by a page element named %s (window.%s without a version)',
+    (name) => {
+      vi.stubGlobal('window', {})
+      vi.stubGlobal('document', {})
+      vi.stubGlobal(name, { id: name })
+      const original = Object.getOwnPropertyDescriptor(globalThis, 'process')
+      Object.defineProperty(globalThis, 'process', { value: undefined, configurable: true })
+      try {
+        expect(() => new Flashpi(TEST_KEY)).toThrow(/runs on servers only/)
+      } finally {
+        if (original) Object.defineProperty(globalThis, 'process', original)
+      }
+    },
+  )
+
+  it('recognizes Deno by its version', () => {
+    vi.stubGlobal('window', {})
+    vi.stubGlobal('document', {})
+    vi.stubGlobal('Deno', { version: { deno: '2.9.6' } })
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'process')
+    Object.defineProperty(globalThis, 'process', { value: undefined, configurable: true })
+    try {
+      expect(new Flashpi(TEST_KEY).environment).toBe('test')
+    } finally {
+      if (original) Object.defineProperty(globalThis, 'process', original)
+    }
+  })
+})
