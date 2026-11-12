@@ -173,8 +173,25 @@ Para usar tu propia clave (por ejemplo el id de tu pedido), pásala en las opcio
 await flashpi.invoices.create(body, { idempotencyKey: `pedido-${order.id}` })
 ```
 
-Si una emisión falla igual, el error trae la clave que usó: reintentar más tarde con
-`{ idempotencyKey: error.idempotencyKey }` devuelve el mismo documento en vez de emitir otro.
+Si una emisión falla igual, el error (un `FlashpiError`) trae la clave que usó en
+`error.idempotencyKey`. Reintentar con `{ idempotencyKey: error.idempotencyKey }` nunca emite un
+segundo documento: dentro de 24 horas la API devuelve la primera respuesta; después (o si la API
+perdió el primer intento), la llamada falla con un 422 `idempotency_key_reused` cuyo
+`error.problem.documentId` es el documento que ya existe (léelo con `flashpi.documents.get`).
+
+```ts
+try {
+  await flashpi.invoices.create(body)
+} catch (error) {
+  if (error instanceof FlashpiError && error.idempotencyKey) {
+    await saveForRetry(body, error.idempotencyKey) // tu cola de reintentos
+  }
+  throw error
+}
+```
+
+Una llamada cancelada con `signal` rechaza con el motivo de la señal, que no es un
+`FlashpiError` ni trae clave: si cancelas emisiones con `signal`, pasa tu propio `idempotencyKey`.
 
 Los límites diarios (como la cuota del emisor demo) no se reintentan: se lanzan como
 `RateLimitError` con `retryAfter` en segundos.
@@ -299,7 +316,9 @@ const { data, response, requestId } = await flashpi.documents.get(id).withRespon
 ## Solo en el servidor
 
 Tu clave de API es secreta. El SDK se niega a correr en un navegador; llama a Flashpi desde tu
-backend. Las pruebas con un DOM simulado (jsdom o happy-dom) sobre Node.js sí funcionan.
+backend. Con un DOM simulado (jsdom o happy-dom) sobre Node.js el cliente sí se crea: en esas
+pruebas pasa un `fetch` simulado con la opción `fetch`. Las pruebas que llaman a un servidor
+real deben correr en el entorno `node` (por ejemplo con `// @vitest-environment node`).
 
 En Deno, el SDK lee `FLASHPI_API_KEY` solo con permiso: `deno run --allow-env=FLASHPI_API_KEY`.
 

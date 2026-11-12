@@ -171,8 +171,25 @@ To use your own key (for example your order id), pass it in the options:
 await flashpi.invoices.create(body, { idempotencyKey: `order-${order.id}` })
 ```
 
-If issuing still fails, the error carries the key it used: trying again later with
-`{ idempotencyKey: error.idempotencyKey }` returns the same document instead of issuing another.
+If issuing still fails, the error (a `FlashpiError`) carries the key it used in
+`error.idempotencyKey`. Trying again with `{ idempotencyKey: error.idempotencyKey }` never issues
+a second document: within 24 hours the API returns the first answer again; after that (or if the
+API lost track of the first attempt), the call fails with a 422 `idempotency_key_reused` whose
+`error.problem.documentId` is the existing document (read it with `flashpi.documents.get`).
+
+```ts
+try {
+  await flashpi.invoices.create(body)
+} catch (error) {
+  if (error instanceof FlashpiError && error.idempotencyKey) {
+    await saveForRetry(body, error.idempotencyKey) // your retry queue
+  }
+  throw error
+}
+```
+
+A call cancelled through `signal` rejects with the signal's reason, which is not a
+`FlashpiError` and has no key: if you cancel issuing with `signal`, pass your own `idempotencyKey`.
 
 Daily limits (such as the demo issuer's quota) are not retried: they are thrown as a
 `RateLimitError` with `retryAfter` in seconds.
@@ -297,7 +314,9 @@ const { data, response, requestId } = await flashpi.documents.get(id).withRespon
 ## Servers only
 
 Your API key is a secret. The SDK refuses to run in a browser; call Flashpi from your backend.
-Tests with a simulated DOM (jsdom or happy-dom) on Node.js work.
+With a simulated DOM (jsdom or happy-dom) on Node.js the client is created: in those tests pass a
+mocked `fetch` through the `fetch` option. Tests that call a real server should run in the `node`
+environment (for example with `// @vitest-environment node`).
 
 On Deno, the SDK reads `FLASHPI_API_KEY` only with permission: `deno run --allow-env=FLASHPI_API_KEY`.
 

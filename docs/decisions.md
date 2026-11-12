@@ -15,14 +15,25 @@ decided three of them:
   waiting 1, 2, 4 and then 5 s, until the call's timeout budget (60 s, or the sync wait plus 15 s)
   is spent. These checks do not count as retries. On the first attempt the normal retry rules
   apply, since another process holds the caller's key.
-- **One copy for import and require.** The `bun` and `module-sync` export conditions point
-  `require()` at the ESM build on Bun and Node.js 22.12+, so an app that loads the SDK both ways
-  shares one set of classes and `instanceof` works. The CommonJS build stays for Node.js
-  22.0-22.11 and older tools.
+- **One copy for import and require.** Under the `node` export condition, `import` gets
+  `dist/index.node.mjs`, a two-line ES module over the CommonJS build, and `require` gets the
+  CommonJS build itself. So on Node.js (and Bun, which also matches `node`) an app that loads
+  the SDK both ways shares one set of classes, and `instanceof` works. A first version used the
+  `module-sync` condition (require() of the ESM build); the second review showed that a
+  concurrent `import()` and `require()` then fails for good on Node.js 22 and 24
+  (`ERR_REQUIRE_ESM_RACE_CONDITION`), so it was replaced. Other runtimes and bundlers get the
+  pure ESM build.
 - **Simulated DOMs.** The browser guard only refuses when there is no Node.js, Bun or Deno
-  runtime, so tests with jsdom or happy-dom work.
+  runtime, detected from version values a page element cannot fake (`process.versions.node`,
+  `process.versions.bun`, `Deno.version.deno`). So the client can be created in tests with
+  jsdom or happy-dom; those tests should pass a mocked `fetch`.
+- **Second review.** The in-progress wait only starts when an earlier attempt of the call may
+  have reached the API without its answer arriving (a network error, a timeout, or a 5xx without
+  Problem Details); once the call's time is spent, the normal retry rules apply. Errors from the
+  recovery `GET` keep the POST's key, and the caller's own abort reason is never changed.
 
-Fixed without changing a decision: every POST error carries the `idempotencyKey` it used; an
+Fixed without changing a decision: every `FlashpiError` of a POST carries the `idempotencyKey`
+it used (a call cancelled through `signal` rejects with the signal's reason instead); an
 `Idempotency-Key` in the request's `headers` is honored (and refused in `defaultHeaders`); the JSON
 body is serialized once for all attempts; the request `language` wins over a client
 `Accept-Language` header; request `timeout` and `maxRetries` are validated and timeouts are
