@@ -14,8 +14,8 @@ const config: UserConfig = defineConfig({
   sourcemap: false,
   clean: true,
   treeshake: true,
-  publint: true,
-  attw: { profile: 'node16', level: 'error' },
+  // The Node.js entry (see package.json "exports"): ESM over the CommonJS build.
+  copy: ['entries/index.node.mjs', 'entries/index.node.d.mts'],
 })
 
 export default config

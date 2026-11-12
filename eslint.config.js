@@ -7,7 +7,7 @@ import tseslint from 'typescript-eslint'
 
 export default defineConfig(
   {
-    ignores: ['dist/', 'coverage/', 'openapi/', 'src/generated/'],
+    ignores: ['dist/', 'coverage/', 'openapi/', 'src/generated/', 'entries/'],
   },
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,

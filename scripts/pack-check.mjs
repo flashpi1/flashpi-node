@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Checks what `npm publish` would ship (run after `pnpm build`): the four build files, the
+// Checks what `npm publish` would ship (run after `pnpm build`): the build files, the
 // READMEs, the license and package.json, plus the changelog once release-please writes it.
 // Fails on anything missing or anything else.
 import { execFileSync } from 'node:child_process'
@@ -9,6 +9,8 @@ const required = [
   'dist/index.d.cts',
   'dist/index.d.mts',
   'dist/index.mjs',
+  'dist/index.node.d.mts',
+  'dist/index.node.mjs',
   'LICENSE',
   'README.en.md',
   'README.md',

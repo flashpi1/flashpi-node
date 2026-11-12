@@ -92,6 +92,7 @@ jobs:
           node test/runtimes/esm.mjs
           node test/runtimes/cjs.cjs
           node test/runtimes/single-copy.mjs
+          node test/runtimes/race.mjs
 
   runtimes:
     name: Bun, Deno and Cloudflare Workers
@@ -117,6 +118,7 @@ jobs:
           bun test/runtimes/esm.mjs
           bun test/runtimes/cjs.cjs
           bun test/runtimes/single-copy.mjs
+          bun test/runtimes/race.mjs
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
