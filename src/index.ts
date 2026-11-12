@@ -18,7 +18,13 @@ export {
   UnprocessableEntityError,
   WebhookVerificationError,
 } from './core/errors'
-export type { ApiErrorCode, Problem, WebhookVerificationReason } from './core/errors'
+export type {
+  ApiErrorCode,
+  ApiFieldErrorCode,
+  FieldError,
+  Problem,
+  WebhookVerificationReason,
+} from './core/errors'
 export type { Fetch, Language, RequestOptions } from './core/http'
 export { Page, PagePromise } from './core/pagination'
 export type { PageParams } from './core/pagination'

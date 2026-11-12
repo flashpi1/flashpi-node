@@ -1,13 +1,15 @@
 /**
  * Public types. The resource types come from the API's OpenAPI document (src/generated); the
- * ones below are written by hand where the document cannot express them, such as the events
- * whose `data` depends on their `type`.
+ * ones below are written by hand where the SDK adds something: shorter names, the webhook
+ * bodies, list filters, uploads and the XML of a document.
  */
 import type {
-  AccountEmailSending,
-  Certificate,
+  AccountEvent,
+  CertificateEvent,
   Document,
+  DocumentEvent,
   Event as ApiEvent,
+  EventThin,
   WebhookEndpointVerificationEvent,
   operations,
 } from './generated/openapi'
@@ -30,8 +32,11 @@ export type {
   CreateWaybill,
   CreateWebhookEndpoint,
   CreateWithholding,
+  AccountEvent,
+  CertificateEvent,
   DebitNoteReason,
   Document,
+  DocumentEvent,
   DocumentAuthorization,
   DocumentCounterparty,
   DocumentEmail,
@@ -50,7 +55,8 @@ export type {
   EmissionPoint,
   ErrorCode,
   Establishment,
-  FieldError,
+  EventThin,
+  FieldErrorCode,
   Issuer,
   IssuerBranding,
   IssuerBrandingInput,
@@ -109,57 +115,30 @@ export type DocumentType = Document['type']
 /** Tax status of a document: processing → pending_sri → authorized | rejected | failed, or voided. */
 export type DocumentStatus = Document['status']
 
-/** Every event type the API sends today. New types may appear: keep a default branch. */
-export type EventType = ApiEvent['type']
-
-/** Events about a document: its tax outcome (`invoice.authorized`, ...), RIDE and email. */
-export type DocumentEventType = Extract<
-  EventType,
-  `${DocumentType}.${string}` | `document.${string}`
->
-
-/** Events about a .p12 certificate (`certificate.verified`, `certificate.revoked`, ...). */
-export type CertificateEventType = Extract<EventType, `certificate.${string}`>
-
-/** Events about the account's email sending (`account.email_paused`, `account.email_resumed`). */
-export type AccountEventType = Extract<EventType, `account.${string}`>
-
-interface EventEnvelope<Type extends EventType, Data> {
-  /** The event id (UUIDv7), also sent as the `webhook-id` header: deduplicate on it. */
-  id: string
-  type: Type
-  environment: Environment
-  /** When the event happened (ISO 8601). */
-  createdAt: string
-  /** The resource as the API returned it when the event happened (texts in English). */
-  data: Data
-}
-
-/** An event about a document. `data` is the document. */
-export type DocumentEvent = EventEnvelope<DocumentEventType, Document>
-
-/** An event about a certificate. `data` is the certificate. */
-export type CertificateEvent = EventEnvelope<CertificateEventType, Certificate>
-
-/** An event about the account's email sending. `data` is the sending state. */
-export type AccountEvent = EventEnvelope<AccountEventType, AccountEmailSending>
-
 /**
- * An event, as `events.get()` returns it and webhooks deliver it. Narrow it on `type`:
+ * An event, as `events.get()` returns it and webhooks deliver it: a DocumentEvent,
+ * CertificateEvent or AccountEvent (the API's discriminated union). Narrow it on `type`:
  *
  * ```ts
  * if (event.type === 'invoice.authorized') console.log(event.data.accessKey)
  * ```
  */
-export type Event = DocumentEvent | CertificateEvent | AccountEvent
+export type Event = ApiEvent
 
-/** The body of a webhook endpoint in thin mode: the event without `data`. */
-export interface ThinEvent {
-  id: string
-  type: EventType
-  environment: Environment
-  createdAt: string
-}
+/** Every event type the API sends today. New types may appear: keep a default branch. */
+export type EventType = Event['type']
+
+/** Events about a document: its tax outcome (`invoice.authorized`, ...), RIDE and email. */
+export type DocumentEventType = DocumentEvent['type']
+
+/** Events about a .p12 certificate (`certificate.verified`, `certificate.revoked`, ...). */
+export type CertificateEventType = CertificateEvent['type']
+
+/** Events about the account's email sending (`account.email_paused`, `account.email_resumed`). */
+export type AccountEventType = AccountEvent['type']
+
+/** The body of a webhook endpoint in thin mode: the event without `data` (the API's EventThin). */
+export type ThinEvent = EventThin
 
 /**
  * What a webhook endpoint in full mode receives: an event, or the activation handshake

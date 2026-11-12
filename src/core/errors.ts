@@ -1,4 +1,9 @@
-import type { ErrorCode, FieldError, ProblemDetails } from '../generated/openapi'
+import type {
+  ErrorCode,
+  FieldError as ApiFieldError,
+  FieldErrorCode,
+  ProblemDetails,
+} from '../generated/openapi'
 
 /**
  * An error code of the Flashpi API (`code` of the Problem Details). New codes can appear
@@ -7,10 +12,19 @@ import type { ErrorCode, FieldError, ProblemDetails } from '../generated/openapi
 export type ApiErrorCode = ErrorCode | (string & {})
 
 /**
- * The Problem Details body of an API error (RFC 9457) with the extension members some codes
- * add, such as `documentId`, `limit`, `resetsAt`, `rideStatus` or `expectedTotal`.
+ * A field error code (`errors[].code`, such as `required` or `invalid_check_digit`). The list
+ * is open: new codes can appear before this package knows them, so any string is accepted.
  */
-export type Problem = ProblemDetails & Record<string, unknown>
+export type ApiFieldErrorCode = FieldErrorCode | (string & {})
+
+/** A field-level problem of a request: the field's path, its code and a localized message. */
+export type FieldError = Omit<ApiFieldError, 'code'> & { code: ApiFieldErrorCode }
+
+/**
+ * The Problem Details body of an API error (RFC 9457), with the extension members some codes
+ * add (`documentId`, `limit`, `resetsAt`, `rideStatus`, `expectedTotal`, ...) and any other.
+ */
+export type Problem = ProblemDetails
 
 /**
  * Every error this package throws extends this class, except when a call is cancelled through
