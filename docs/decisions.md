@@ -8,7 +8,8 @@ product owner.
 Two adversarial reviews of the Python SDK (flashpi-python) found five defects that this SDK had
 too. The owner approved fixing them here with the rules Python follows; each code fix has a
 regression test that fails without it. The checks are plain JavaScript, so they behave the same
-on Node.js, Bun, Deno and Workers.
+on Node.js, Bun, Deno and Workers. The owner then confirmed the header rules as built and asked
+for headers in every shape `Headers` takes (the two bullets after _Header values_).
 
 - **API key.** It is still trimmed as `String.prototype.trim()` does, and its prefix checked;
   then it must be visible ASCII without spaces (`/^[\x21-\x7e]+$/`). Otherwise the client is
@@ -25,8 +26,8 @@ on Node.js, Bun, Deno and Workers.
   attempt of a request is built from the copies checked before the first one, so a value the
   caller changes while a retry waits is not sent. A value that is not text (from JavaScript) is
   turned into text once, as `Headers` would, and that text is checked and sent; a symbol is
-  refused. An `Idempotency-Key` in `headers` is checked whatever their shape (an object, a
-  `Headers` instance or pairs). Trimming takes linear time (a first version used a regular
+  refused. `headers` and `defaultHeaders` are read in every shape `Headers` takes (see
+  _Headers in every shape_). Trimming takes linear time (a first version used a regular
   expression that took seconds on a long run of inner spaces). Before, `\x01`, `\x0b`, `\x7f`
   and the like passed `Headers`; Node.js's fetch then refused them while sending ("fetch
   failed"), which the SDK retried as a `ConnectionError`, and Bun and Workers sent them.
@@ -45,6 +46,38 @@ on Node.js, Bun, Deno and Workers.
   Latin-1 values (0x80 to 0xFF) are still sent. A lone surrogate is refused on every runtime, as
   in Python: Workers sent it as ill-formed UTF-8. As in Python, the trimmed Idempotency-Key, the
   one sent, is the one on errors, and a request `language` of spaces only keeps the client's.
+- **Confirmed by the owner** (2026-11-13, final), as built above: `Keep-Alive`, `Upgrade` and
+  `Expect` are refused with a `TypeError` on every runtime, besides `Content-Length` and
+  `Transfer-Encoding`; a request Node.js's fetch refuses as invalid (`UND_ERR_INVALID_ARG`,
+  `UND_ERR_NOT_SUPPORTED`) is a `FlashpiError` that is not retried, with undici's reason and
+  `cause`; a lone surrogate in a header value is refused; and header errors never show the value
+  (the SDK's own `TypeError` instead of the runtime's). The owner also accepted these choices of
+  the fix: a CR, LF or NUL gets the SDK's `TypeError`, which names only the header;
+  `error.idempotencyKey` is the trimmed key that was sent; a request `language` of spaces only
+  keeps the client's; and `idempotencyKey` is checked on every method, also those that do not
+  send it.
+- **Headers in every shape** (owner's request, 2026-11-13). `headers` given as a `Headers`
+  instance, a `Map` or a generator were dropped but for their `Idempotency-Key`, pairs in an
+  array became headers named `0`, `1`, ... (`0: x-a,1`), and an `Idempotency-Key` in a `Headers`
+  instance in `defaultHeaders` was not refused. Now a request's `headers` and the client's
+  `defaultHeaders` take every shape `new Headers()` takes: a plain object, a `Headers` instance,
+  or `[name, value]` pairs (an array, a `Map`, any iterable). Every shape gets the checks of a
+  plain object: trimming, control characters and lone surrogates, the names fetch handles itself,
+  errors that never show the value, and the `Idempotency-Key` rules (`idempotencyKey` still wins
+  over the header, and the header is still refused in `defaultHeaders`). They are read once into
+  a checked copy that every attempt, and the read of a recovered document, use, so a later change
+  is never sent. As in `Headers`, a name given twice in pairs gets both values, joined with ", "; a
+  plain object keeps the last of two names that differ only in case, as before. A request's
+  `headers` still replace the client's values of the names they carry. `defaultHeaders` is still
+  read again before each request, except an iterator (a generator, `map.entries()`), which can be
+  read only once: the client keeps the copy it read when it was created. Likewise, every page of
+  a list sends the `headers` the first page read from an iterator. `headers` that are not an
+  object (a string became headers named `0`, `1`, ...) and an entry that is not a pair throw a
+  `TypeError` that never shows them; `null` is still no headers. The type is a plain object,
+  `Headers`, `Iterable<readonly [string, string]>`, or whatever `new Headers()` takes in the
+  consumer's own types (the DOM library, @types/node, Bun's or Workers' types), so a value typed
+  as `HeadersInit` compiles with and without the DOM library and with
+  `exactOptionalPropertyTypes` (`test/types/consumer.ts` is compiled both ways).
 - **Publishing.** The Release workflow's publish job held `id-token: write`, which npm's trusted
   publishing turns into a publish token, while it ran `pnpm install`, the typecheck, the tests
   and the build: code of the repository and of every dependency. A build job, with a read-only
