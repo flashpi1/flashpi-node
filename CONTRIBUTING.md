@@ -71,10 +71,21 @@ npm trusted publishing (OIDC, no token) and provenance.
 
 While the version is 0.x, `feat:` raises the minor version and `fix:` the patch version.
 
-Pull requests opened by GitHub Actions (the release PR and the OpenAPI sync PR) start no
-workflow by themselves, so the Release and OpenAPI sync workflows dispatch `ci.yml` (and, for a
-release, `live.yml`) on their branch. To run them again by hand:
-`gh workflow run ci.yml --ref <branch>`.
+The release PR and the OpenAPI sync PR are opened with a token of the organization's GitHub
+App, so CI runs on them like on any pull request. (One opened with `GITHUB_TOKEN` would get its
+CI only after someone approves it.) The Release workflow also starts the live API test
+(`live.yml`) on the release branch each time release-please updates it. A dispatched `ci.yml`
+run does not count for a pull request's required checks: to run CI again, re-run the PR's own
+checks.
+
+### The GitHub App
+
+An app of the `flashpi1` organization, installed on `flashpi-node` only, with no webhook and
+these repository permissions: Contents, Pull requests and Issues, read and write. Its Client
+ID is the repository variable `FLASHPI_BOT_CLIENT_ID` and its private key the repository secret
+`FLASHPI_BOT_PRIVATE_KEY`. The workflows create a one-hour token per run with only the
+permissions each job needs. To rotate the key, generate a new one in the app's settings, update
+the secret, then delete the old key.
 
 The publish job runs in the `npm` environment, which waits for a maintainer's approval in
 GitHub before it publishes.
