@@ -87,8 +87,11 @@ ID is the repository variable `FLASHPI_BOT_CLIENT_ID` and its private key the re
 permissions each job needs. To rotate the key, generate a new one in the app's settings, update
 the secret, then delete the old key.
 
-The publish job runs in the `npm` environment, which waits for a maintainer's approval in
-GitHub before it publishes.
+When a release is created, a build job checks out the tag, installs, typechecks, tests, builds
+and packs it with a read-only token and no secret, and hands the tarball over as an artifact
+(kept 30 days). The publish job, the only one with `id-token: write`, runs in the `npm`
+environment, which waits for a maintainer's approval in GitHub; it checks out and installs
+nothing, and publishes that tarball with `npm publish <tarball> --access public`.
 
 ### The first release
 
