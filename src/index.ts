@@ -28,6 +28,7 @@ export type {
 export type { Fetch, Language, RequestOptions } from './core/http'
 export { Page, PagePromise } from './core/pagination'
 export type { PageParams } from './core/pagination'
+export type { HeadersLike } from './core/validate'
 
 export type { DocumentIssuer, Documents } from './resources/documents'
 export type {

@@ -1,6 +1,13 @@
 import { FlashpiError } from './core/errors'
 import { type Fetch, HttpClient, type Language } from './core/http'
-import { validRetries, validTimeout } from './core/validate'
+import {
+  type HeadersLike,
+  checkHeaders,
+  headerValue,
+  isIterator,
+  validRetries,
+  validTimeout,
+} from './core/validate'
 import { Documents, DocumentIssuer } from './resources/documents'
 import type {
   CreditNotes,
@@ -20,7 +27,12 @@ import { Webhooks } from './webhooks'
 
 /** Settings of a Flashpi client. */
 export interface ClientOptions {
-  /** The API key (`fp_test_...` or `fp_live_...`). Defaults to the FLASHPI_API_KEY variable. */
+  /**
+   * The API key (`fp_test_...` or `fp_live_...`). Defaults to the FLASHPI_API_KEY variable.
+   * Spaces and line breaks around it are trimmed; a key that still has a character other than
+   * visible ASCII (a space, a line break, ...) is refused with a `FlashpiError` that never
+   * shows it.
+   */
   apiKey?: string | undefined
   /** Milliseconds to wait for each attempt of a request (default 60 000). */
   timeout?: number | undefined
@@ -32,8 +44,21 @@ export interface ClientOptions {
   baseUrl?: string | undefined
   /** A `fetch` implementation, for proxies or tests (default: the runtime's `fetch`). */
   fetch?: Fetch | undefined
-  /** Headers sent with every request (not `Idempotency-Key`: that one is per request). */
-  defaultHeaders?: Record<string, string> | undefined
+  /**
+   * Headers sent with every request, in any shape `new Headers()` takes: a plain object, a
+   * `Headers` instance or `[name, value]` pairs (an array, a `Map`). A name given twice in pairs
+   * gets both values, joined with ", ", as `Headers` does; a request's `headers` replace the
+   * values of the names they carry. They are read again before each request, so a change you
+   * make later is sent (and checked) from the next request on; an iterator such as a generator,
+   * which can be read only once, is read when the client is created.
+   *
+   * Not `Idempotency-Key`: that one is per request. Not Content-Length, Transfer-Encoding,
+   * Keep-Alive, Upgrade or Expect either, which fetch handles itself. Such a header, or a value
+   * with a line break, another control character (other than a tab), a lone surrogate or a
+   * character the runtime's `Headers` refuses (above U+00FF on Node.js and Bun), throws a
+   * TypeError when the client is created; the message never shows the value.
+   */
+  defaultHeaders?: HeadersLike | undefined
 }
 
 export const DEFAULT_BASE_URL = 'https://api.flashpi.com.ec'
@@ -95,8 +120,18 @@ export class Flashpi {
     const fromEnv = options.apiKey === undefined ? readEnv('FLASHPI_API_KEY') : undefined
     const apiKey = (options.apiKey ?? fromEnv?.value)?.trim()
     this.environment = environmentOf(apiKey, fromEnv?.denied)
-    const defaultHeaders = options.defaultHeaders ?? {}
-    if (new Headers(defaultHeaders).has('idempotency-key')) {
+    // Checked here, so a bad value fails when the client is created (and again before each
+    // request, in case they change later).
+    const checkedDefaultHeaders = checkHeaders('defaultHeaders', options.defaultHeaders)
+    // An iterator (a generator, `map.entries()`) gives its pairs only once: keep what it gave.
+    const defaultHeaders = isIterator(options.defaultHeaders)
+      ? checkedDefaultHeaders
+      : options.defaultHeaders
+    const language =
+      options.language === undefined
+        ? undefined
+        : (headerValue('language', options.language) as Language)
+    if (checkedDefaultHeaders.has('idempotency-key')) {
       throw new FlashpiError(
         'defaultHeaders cannot carry an Idempotency-Key: it must be unique per operation. Pass { idempotencyKey } to each create() instead',
       )
@@ -110,7 +145,7 @@ export class Flashpi {
       baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
       timeout: validTimeout('timeout', options.timeout ?? DEFAULT_TIMEOUT_MS),
       maxRetries: validRetries('maxRetries', options.maxRetries ?? DEFAULT_MAX_RETRIES),
-      language: options.language,
+      language,
       fetch: fetchImplementation,
       defaultHeaders,
     })
@@ -143,15 +178,30 @@ function environmentOf(apiKey: string | undefined, envDenied: unknown): Environm
       'Missing API key: pass it to new Flashpi(apiKey) or set the FLASHPI_API_KEY environment variable',
     )
   }
-  if (apiKey.startsWith('fp_test_')) return 'test'
-  if (apiKey.startsWith('fp_live_')) return 'live'
-  if (apiKey.startsWith('whsec_')) {
+  const environment = apiKey.startsWith('fp_test_')
+    ? 'test'
+    : apiKey.startsWith('fp_live_')
+      ? 'live'
+      : undefined
+  if (environment === undefined) {
+    if (apiKey.startsWith('whsec_')) {
+      throw new FlashpiError(
+        'That is a webhook signing secret (whsec_...), not an API key: use it with flashpi.webhooks',
+      )
+    }
+    throw new FlashpiError('The API key must start with fp_test_ or fp_live_')
+  }
+  if (!API_KEY_CHARACTERS.test(apiKey)) {
+    // Never the key: Headers would refuse it in the Authorization header and quote it whole.
     throw new FlashpiError(
-      'That is a webhook signing secret (whsec_...), not an API key: use it with flashpi.webhooks',
+      'The API key has spaces, line breaks or other characters an API key cannot have: copy it again from the Flashpi console',
     )
   }
-  throw new FlashpiError('The API key must start with fp_test_ or fp_live_')
+  return environment
 }
+
+/** What an API key is made of: visible ASCII characters, without spaces. */
+const API_KEY_CHARACTERS = /^[\x21-\x7e]+$/
 
 /**
  * API keys are secrets: refuse to run in a browser, where page visitors could read them. A

@@ -1,6 +1,7 @@
 import { APIPromise, type WithResponse } from './api-promise'
 import type { HttpClient, RequestOptions, RequestSpec } from './http'
 import { type ListBody, Page, type PageParams, PagePromise } from './pagination'
+import { checkHeaders, isIterator } from './validate'
 
 /** Base of every resource: the shared HTTP client and small request helpers. */
 export abstract class APIResource {
@@ -36,9 +37,19 @@ export abstract class APIResource {
     params: PageParams | undefined,
     options?: RequestOptions,
   ): PagePromise<T> {
+    let pageOptions = options
     const fetchPage = async (cursor: string | undefined): Promise<WithResponse<Page<T>>> => {
+      // An iterator gives its headers only once: every page sends what the first one read.
+      if (isIterator(pageOptions?.headers)) {
+        pageOptions = { ...pageOptions, headers: checkHeaders('headers', pageOptions?.headers) }
+      }
       const query = { ...params, cursor }
-      const result = await this.http.request<ListBody<T>>({ method: 'GET', path, query, options })
+      const result = await this.http.request<ListBody<T>>({
+        method: 'GET',
+        path,
+        query,
+        options: pageOptions,
+      })
       const page = new Page<T>(result.data, (next) => fetchPage(next))
       return { data: page, response: result.response, requestId: result.requestId }
     }

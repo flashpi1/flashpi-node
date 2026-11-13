@@ -3,6 +3,127 @@
 Settled decisions about @flashpi/node, newest first. Each one was taken with the Flashpi
 product owner.
 
+## 2026-11-13: hardening after the Python SDK's reviews
+
+Two adversarial reviews of the Python SDK (flashpi-python) found five defects that this SDK had
+too. The owner approved fixing them here with the rules Python follows; each code fix has a
+regression test that fails without it. The checks are plain JavaScript, so they behave the same
+on Node.js, Bun, Deno and Workers. The owner then confirmed the header rules as built and asked
+for headers in every shape `Headers` takes (the two bullets after _Header values_).
+
+- **API key.** It is still trimmed as `String.prototype.trim()` does, and its prefix checked;
+  then it must be visible ASCII without spaces (`/^[\x21-\x7e]+$/`). Otherwise the client is
+  not created: a `FlashpiError` says why without showing the key or any part of it, also when
+  it comes from `FLASHPI_API_KEY`. Before, a key with a line break or a NUL made every request
+  fail with a `TypeError` from `Headers` whose message quoted `Bearer <key>`, and inner spaces
+  were sent.
+- **Header values.** Every value the SDK turns into a header (`idempotencyKey`, `correlationId`,
+  `language`, `headers`, and the client's `defaultHeaders` and `language`) is checked before
+  anything is sent, after trimming the spaces, tabs and line breaks around it as `Headers` does.
+  A control character other than a tab left inside throws a `TypeError` that names the header or
+  option, never the value, and is not retried; the client's settings fail when the client is
+  created (and `defaultHeaders` again before each request, in case the object changed). Every
+  attempt of a request is built from the copies checked before the first one, so a value the
+  caller changes while a retry waits is not sent. A value that is not text (from JavaScript) is
+  turned into text once, as `Headers` would, and that text is checked and sent; a symbol is
+  refused. `headers` and `defaultHeaders` are read in every shape `Headers` takes (see
+  _Headers in every shape_). Trimming takes linear time (a first version used a regular
+  expression that took seconds on a long run of inner spaces). Before, `\x01`, `\x0b`, `\x7f`
+  and the like passed `Headers`; Node.js's fetch then refused them while sending ("fetch
+  failed"), which the SDK retried as a `ConnectionError`, and Bun and Workers sent them.
+  `Content-Length` and `Transfer-Encoding` in `headers` or `defaultHeaders` throw a `TypeError`
+  too: fetch sets them from the body, and a wrong one failed (or hung until the timeout) only
+  while sending, as a retried network error. So do `Keep-Alive`, `Upgrade` and `Expect`:
+  Node.js's fetch refused them while sending, as a retried network error too, Bun hangs on
+  `Upgrade` and Workers on `Expect` (`Connection` is still passed to fetch: only Node.js 22
+  refuses some values, the case below). And when Node.js's fetch refuses a request as invalid
+  before sending it (undici's `UND_ERR_INVALID_ARG` or `UND_ERR_NOT_SUPPORTED`, such as
+  `Connection: upgrade` on Node.js 22), the SDK throws a `FlashpiError` that is not retried, as
+  Python does when httpx refuses one, with undici's reason, which names the header and never its
+  value. What `Headers` refused at once is still refused at once with a `TypeError`, but the SDK
+  asks `Headers` first and throws its own error, which never shows the value (Bun's quotes it):
+  characters above U+00FF are still refused on Node.js and Bun and sent as UTF-8 on Workers, and
+  Latin-1 values (0x80 to 0xFF) are still sent. A lone surrogate is refused on every runtime, as
+  in Python: Workers sent it as ill-formed UTF-8. As in Python, the trimmed Idempotency-Key, the
+  one sent, is the one on errors, and a request `language` of spaces only keeps the client's.
+- **Confirmed by the owner** (2026-11-13, final), as built above: `Keep-Alive`, `Upgrade` and
+  `Expect` are refused with a `TypeError` on every runtime, besides `Content-Length` and
+  `Transfer-Encoding`; a request Node.js's fetch refuses as invalid (`UND_ERR_INVALID_ARG`,
+  `UND_ERR_NOT_SUPPORTED`) is a `FlashpiError` that is not retried, with undici's reason and
+  `cause`; a lone surrogate in a header value is refused; and header errors never show the value
+  (the SDK's own `TypeError` instead of the runtime's). The owner also accepted these choices of
+  the fix: a CR, LF or NUL gets the SDK's `TypeError`, which names only the header;
+  `error.idempotencyKey` is the trimmed key that was sent; a request `language` of spaces only
+  keeps the client's; and `idempotencyKey` is checked on every method, also those that do not
+  send it.
+- **Headers in every shape** (owner's request, 2026-11-13). `headers` given as a `Headers`
+  instance, a `Map` or a generator were dropped but for their `Idempotency-Key`, pairs in an
+  array became headers named `0`, `1`, ... (`0: x-a,1`), and an `Idempotency-Key` in a `Headers`
+  instance in `defaultHeaders` was not refused. Now a request's `headers` and the client's
+  `defaultHeaders` take every shape `new Headers()` takes: a plain object, a `Headers` instance,
+  or `[name, value]` pairs (an array, a `Map`, any iterable). Every shape gets the checks of a
+  plain object: trimming, control characters and lone surrogates, the names fetch handles itself,
+  errors that never show the value, and the `Idempotency-Key` rules (`idempotencyKey` still wins
+  over the header, and the header is still refused in `defaultHeaders`). They are read once into
+  a checked copy that every attempt, and the read of a recovered document, use, so a later change
+  is never sent. As in `Headers`, a name given twice in pairs gets both values, joined with ", "; a
+  plain object keeps the last of two names that differ only in case, as before. A request's
+  `headers` still replace the client's values of the names they carry. `defaultHeaders` is still
+  read again before each request, except an iterator (a generator, `map.entries()`), which can be
+  read only once: the client keeps the copy it read when it was created. Likewise, every page of
+  a list sends the `headers` the first page read from an iterator. `headers` that are not an
+  object (a string became headers named `0`, `1`, ...) and an entry that is not a pair throw a
+  `TypeError` that never shows them; `null` is still no headers. The type is a plain object,
+  `Headers`, `Iterable<readonly [string, string]>`, or whatever `new Headers()` takes in the
+  consumer's own types (the DOM library, @types/node, Bun's or Workers' types), so a value typed
+  as `HeadersInit` compiles with and without the DOM library and with
+  `exactOptionalPropertyTypes` (`test/types/consumer.ts` is compiled both ways). It is exported
+  as `HeadersLike`, so a consumer's declarations that infer it from these options name it: when
+  it was not, they spelled out the runtime's `HeadersInit`, which with only @types/node is
+  undici-types' one, and a pnpm project, which cannot reach that package, failed to compile them
+  (TS2883, "cannot be named"). Every input that compiled before still does, but the type is wider
+  than the plain object it was: code that reads `headers` or `defaultHeaders` as one
+  (`options.headers?.['x-a']`, a `Record<string, string>` annotation) no longer compiles, and
+  spreading them (`{ ...options.headers }`), which still compiles, drops a `Headers` instance or
+  a `Map` and turns pairs into headers named `0`, `1`, .... Read them with `new Headers()`, which
+  takes every shape; TypeScript's types for it take no `Map`, generator or read-only array, so
+  the call needs a cast, as in `test/types/consumer.ts`:
+  `new Headers(options.headers as ConstructorParameters<typeof Headers>[0])`. The owner confirmed
+  the last-of-two-names rule for plain objects and the `TypeError` for headers that are not an
+  object, and chose to release this as 0.2.0 rather than 0.1.1: within `^0.1.0` it would reach
+  code that may stop compiling, so its commits are `feat:` with a `BREAKING CHANGE` note.
+- **Publishing.** The Release workflow's publish job held `id-token: write`, which npm's trusted
+  publishing turns into a publish token, while it ran `pnpm install`, the typecheck, the tests
+  and the build: code of the repository and of every dependency. A build job, with a read-only
+  token and no environment, secret or cache, now checks out the tag (by its full ref,
+  `refs/tags/<tag>`, since checkout takes a branch over a tag with the same short name, and
+  fails unless the tag is still on the commit release-please released, a second guard besides
+  the tag ruleset below),
+  installs with the frozen lockfile, typechecks, tests, builds, runs `pack:check`, packs with
+  `npm pack` what `npm publish` would publish, checks the tarball's name against the tag and
+  keeps it 30 days as an artifact (the `npm` environment's approval can wait). The publish job,
+  in the `npm` environment with `id-token: write` only, checks out and installs nothing: it sets
+  up the Node.js of `.nvmrc` (as the build job reports it), checks that npm is 11.5.1 or later
+  and runs `npm publish <tarball> --access public --provenance`. The trusted publisher (workflow
+  `release.yml`, environment `npm`) does not change. Trusted publishing turns provenance on by
+  itself only when npm's lookup of the package's visibility succeeds, and npm 11 publishes
+  without it, quietly, when that lookup fails; with `--provenance`, a release without a
+  provenance statement fails instead.
+- **The contract download.** `pnpm openapi:sync` downloaded `FLASHPI_OPENAPI_URL` whatever its
+  scheme, and fetch followed redirects to plain HTTP by itself. `scripts/download.mjs` now
+  refuses a URL that is not `https://` and follows redirects by hand, at most five, only to
+  `https://` URLs, each refused before it is requested.
+- **Organization settings.** `FLASHPI_BOT_CLIENT_ID`, `FLASHPI_BOT_PRIVATE_KEY`,
+  `FLASHPI_TEST_API_KEY` and `FLASHPI_DEMO_ISSUER_ID` are organization variables and secrets of
+  `flashpi1`, shared with flashpi-python, not repository ones as the docs said. Rotate or change
+  them in the organization: a repository copy would shadow them in this repository only.
+- **GitHub settings** (owner, 2026-11-13). The `npm` environment now deploys only from `main`:
+  it took any branch, and npm's trusted publisher checks the workflow and the environment, not
+  the branch, so a changed `release.yml` on another branch could have asked for it (still behind
+  the owner's approval). A ruleset, "Release tags cannot move or be deleted", keeps every `v*`
+  tag from being moved or deleted, here and in flashpi-python; release-please still creates
+  them.
+
 ## 2026-11-13: release PRs run CI by themselves
 
 The 0.1.0 release PR could not merge until its CI run was approved by hand. Since 2026-06-11

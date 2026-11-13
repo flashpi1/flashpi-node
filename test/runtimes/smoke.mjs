@@ -85,6 +85,67 @@ export async function runSmoke(sdk) {
   check(failure.code === 'validation_failed', 'the error carries its code')
   check(failure.errors[0]?.field === 'customer.id', 'the error carries its field errors')
 
+  // Header values are checked before anything is sent, with errors that never show the value
+  // (Bun's own Headers error quotes it).
+  const secret = 'Zk7QpWMv3RtY'
+  const sentBefore = sent.length
+  for (const [what, value] of [
+    ['a control character', `${secret}\x01`],
+    ['a lone surrogate', `${secret}\ud800`],
+    ['Keep-Alive', null],
+  ]) {
+    let error
+    try {
+      await flashpi.status.get({
+        headers: value === null ? { 'Keep-Alive': 'timeout=5' } : { 'x-a': value },
+      })
+    } catch (caught) {
+      error = caught
+    }
+    check(error instanceof TypeError, `${what} in headers throws a TypeError`)
+    check(
+      !`${error.message}${error.stack}`.includes(secret),
+      `the error of ${what} hides the value`,
+    )
+  }
+  check(sent.length === sentBefore, 'nothing is sent with a bad header')
+  // Above U+00FF: Workers sends it as UTF-8; Node.js and Bun refuse it, without showing it.
+  replies.push(json({ status: 'operational' }))
+  try {
+    await flashpi.status.get({ headers: { 'x-a': `${secret}\u20ac` } })
+    check(sent.length === sentBefore + 1, 'a header value above U+00FF is sent or refused')
+  } catch (error) {
+    check(error instanceof TypeError, 'a header value above U+00FF is refused with a TypeError')
+    check(!`${error.message}${error.stack}`.includes(secret), 'its error hides the value')
+    replies.length = 0
+  }
+
+  // Every shape Headers takes (an object, a Headers instance, pairs) is checked and sent.
+  let pairsError
+  try {
+    await flashpi.status.get({ headers: [['x-a', `${secret}\x01`]] })
+  } catch (caught) {
+    pairsError = caught
+  }
+  check(pairsError instanceof TypeError, 'a control character in pairs throws a TypeError')
+  check(!`${pairsError.message}${pairsError.stack}`.includes(secret), 'its error hides the value')
+  const withDefaults = new Flashpi(KEY, {
+    fetch,
+    maxRetries: 0,
+    defaultHeaders: new Headers({ 'x-team': 'billing' }),
+  })
+  replies.push(json({ status: 'operational' }), json({ status: 'operational' }))
+  await withDefaults.status.get({ headers: new Headers({ 'x-trace': 'trace-1' }) })
+  await flashpi.status.get({
+    headers: [
+      ['x-tag', 'a'],
+      ['x-tag', 'b'],
+    ],
+  })
+  check(sent.at(-2).headers.get('x-team') === 'billing', 'a Headers instance in defaultHeaders')
+  check(sent.at(-2).headers.get('x-trace') === 'trace-1', 'a Headers instance in headers')
+  check(sent.at(-1).headers.get('x-tag') === 'a, b', 'pairs in headers, joined as Headers does')
+
   const event = await unwrapWebhook(
     new TextEncoder().encode(WEBHOOK.body),
     new Headers(WEBHOOK.headers),

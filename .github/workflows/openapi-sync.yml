@@ -10,8 +10,9 @@ name: OpenAPI sync
 #   secret and a read-only GITHUB_TOKEN. It hands the two contract files over as an artifact.
 # - pull-request runs no repository or dependency code: it copies those two files into a fresh
 #   checkout and pushes and opens the PR with a token of the organization's GitHub App (the
-#   FLASHPI_BOT_CLIENT_ID variable and FLASHPI_BOT_PRIVATE_KEY secret). A PR opened with the
-#   App's token gets CI like any other; one opened with GITHUB_TOKEN would wait for approval.
+#   organization variable FLASHPI_BOT_CLIENT_ID and secret FLASHPI_BOT_PRIVATE_KEY, shared with
+#   flashpi-python). A PR opened with the App's token gets CI like any other; one opened with
+#   GITHUB_TOKEN would wait for approval.
 on:
   schedule:
     - cron: '17 11 * * *'

@@ -121,7 +121,7 @@ Cada error de la API es una subclase de `APIError` según su estado HTTP. Decide
 que es estable y en inglés; `message` sigue el idioma pedido.
 
 ```ts
-import { APIError, ConflictError, UnprocessableEntityError } from '@flashpi/node'
+import { APIError, UnprocessableEntityError } from '@flashpi/node'
 
 try {
   await flashpi.invoices.create(body)

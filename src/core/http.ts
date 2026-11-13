@@ -1,7 +1,14 @@
 import { VERSION } from '../version'
 import type { WithResponse } from './api-promise'
 import { APIError, ConnectionError, FlashpiError, TimeoutError } from './errors'
-import { MAX_TIMEOUT_MS, validRetries, validTimeout } from './validate'
+import {
+  type HeadersLike,
+  MAX_TIMEOUT_MS,
+  checkHeaders,
+  headerValue,
+  validRetries,
+  validTimeout,
+} from './validate'
 
 /** Languages the API writes its messages in. Error codes are the same in both. */
 export type Language = 'en' | 'es'
@@ -31,8 +38,21 @@ export interface RequestOptions {
    * back and logged by Flashpi.
    */
   correlationId?: string | undefined
-  /** Extra headers for this request. */
-  headers?: Record<string, string> | undefined
+  /**
+   * Extra headers for this request, in any shape `new Headers()` takes: a plain object, a
+   * `Headers` instance or `[name, value]` pairs (an array, a `Map`). A name given twice in pairs
+   * gets both values, joined with ", ", as `Headers` does. They are read once, before the first
+   * attempt: every retry sends what was read, even if you change them meanwhile.
+   *
+   * Not Content-Length, Transfer-Encoding, Keep-Alive, Upgrade or Expect, which fetch handles
+   * itself. Such a header, or a value with a line break, another control character (other than
+   * a tab), a lone surrogate or a character the runtime's `Headers` refuses (above U+00FF on
+   * Node.js and Bun), throws a TypeError before anything is sent, as do such `idempotencyKey`,
+   * `correlationId` and `language` values; the message never shows the value. The spaces, tabs
+   * and line breaks around a value are trimmed, as `Headers` does. An `Idempotency-Key` here is
+   * used when `idempotencyKey` is not given.
+   */
+  headers?: HeadersLike | undefined
 }
 
 /** The client settings the HTTP layer needs. */
@@ -43,7 +63,8 @@ export interface HttpConfig {
   maxRetries: number
   language: Language | undefined
   fetch: Fetch
-  defaultHeaders: Record<string, string>
+  /** The client's `defaultHeaders` (or the copy read from an iterator), checked per request. */
+  defaultHeaders: HeadersLike | undefined
 }
 
 export type QueryValue = string | number | boolean | null | undefined
@@ -92,7 +113,13 @@ export class HttpClient {
   }
 
   async request<T>(spec: RequestSpec<T>): Promise<WithResponse<T>> {
-    const options = spec.options ?? {}
+    // Checked before anything is sent: fetch would refuse some bad header values only while
+    // sending, as a network error that would be retried. Every attempt is built from these
+    // copies, so a header the caller changes while a retry waits is never sent unchecked.
+    const defaultHeaders = checkHeaders('defaultHeaders', this.#config.defaultHeaders)
+    // Read once, whatever their shape: an iterator gives its pairs only once.
+    const requestHeaders = checkHeaders('headers', spec.options?.headers)
+    const options = checkedOptions(spec.options ?? {}, requestHeaders)
     const maxRetries =
       options.maxRetries === undefined
         ? this.#config.maxRetries
@@ -105,9 +132,7 @@ export class HttpClient {
     const url = this.#url(spec.path, spec.query)
     const idempotencyKey =
       spec.method === 'POST'
-        ? (options.idempotencyKey ??
-          new Headers(options.headers).get('idempotency-key') ??
-          crypto.randomUUID())
+        ? (options.idempotencyKey ?? requestHeaders.get('idempotency-key') ?? crypto.randomUUID())
         : undefined
     // Serialized once: every attempt sends the same bytes under the same Idempotency-Key, even
     // when the caller changes the object afterwards.
@@ -123,7 +148,7 @@ export class HttpClient {
     for (let attempt = 0; ; attempt++) {
       const init: RequestInit = {
         method: spec.method,
-        headers: this.#headers(spec, options, idempotencyKey),
+        headers: this.#headers(spec, options, defaultHeaders, requestHeaders, idempotencyKey),
       }
       if (spec.multipart) init.body = spec.multipart()
       else if (json !== undefined) init.body = json
@@ -244,6 +269,13 @@ export class HttpClient {
       } catch (error) {
         if (userSignal?.aborted) throw userSignal.reason
         if (controller.signal.reason === timedOut) throw timedOut
+        // Node.js's fetch refused the request as invalid before sending it (a header it does not
+        // allow): it would refuse every retry too.
+        const refusal = refusalOf(error)
+        if (refusal !== undefined) {
+          const message = `fetch refused to send ${init.method ?? 'GET'} ${url}: ${refusal}`
+          throw new FlashpiError(message, { cause: error })
+        }
         throw new ConnectionError(`${init.method ?? 'GET'} ${url} failed: ${describe(error)}`, {
           cause: error,
         })
@@ -273,6 +305,8 @@ export class HttpClient {
   #headers<T>(
     spec: RequestSpec<T>,
     options: RequestOptions,
+    defaultHeaders: Headers,
+    requestHeaders: Headers,
     idempotencyKey: string | undefined,
   ): Headers {
     const headers = new Headers({
@@ -281,11 +315,9 @@ export class HttpClient {
     })
     // Lowest priority first: client language, client headers, request language, request headers.
     if (this.#config.language) headers.set('accept-language', this.#config.language)
-    for (const [name, value] of Object.entries(this.#config.defaultHeaders)) {
-      headers.set(name, value)
-    }
+    overlay(headers, defaultHeaders)
     if (options.language) headers.set('accept-language', options.language)
-    for (const [name, value] of Object.entries(options.headers ?? {})) headers.set(name, value)
+    overlay(headers, requestHeaders)
     if (options.correlationId !== undefined) headers.set('x-correlation-id', options.correlationId)
     if (idempotencyKey !== undefined) headers.set('idempotency-key', idempotencyKey)
     if (!spec.multipart && spec.body !== undefined) headers.set('content-type', 'application/json')
@@ -294,6 +326,35 @@ export class HttpClient {
     headers.set('authorization', `Bearer ${this.#config.apiKey}`)
     return headers
   }
+}
+
+/**
+ * The caller's options with the values that become headers checked and trimmed as `Headers`
+ * trims them ({@link headerValue}), and `headers` replaced by their checked copy
+ * ({@link checkHeaders}), so every attempt, every error and a recovered read use the same ones.
+ */
+function checkedOptions(options: RequestOptions, headers: Headers): RequestOptions {
+  const checked: RequestOptions = { ...options, headers }
+  if (options.idempotencyKey !== undefined) {
+    checked.idempotencyKey = headerValue('idempotencyKey', options.idempotencyKey)
+  }
+  if (options.correlationId !== undefined) {
+    checked.correlationId = headerValue('correlationId', options.correlationId)
+  }
+  if (options.language !== undefined) {
+    checked.language = headerValue('language', options.language) as Language
+  }
+  return checked
+}
+
+/** Sets the headers of `layer` on `headers`, replacing the values `headers` had for their names. */
+function overlay(headers: Headers, layer: Headers): void {
+  layer.forEach((_value, name) => {
+    headers.delete(name)
+  })
+  layer.forEach((value, name) => {
+    headers.append(name, value)
+  })
 }
 
 function readData(
@@ -359,6 +420,20 @@ function sleep(milliseconds: number, signal: AbortSignal | undefined): Promise<v
     }, milliseconds)
     signal?.addEventListener('abort', onAbort, { once: true })
   })
+}
+
+/** The codes of the errors undici, Node.js's fetch, refuses an invalid request with. */
+const REFUSAL_CODES = new Set(['UND_ERR_INVALID_ARG', 'UND_ERR_NOT_SUPPORTED'])
+
+/**
+ * Why fetch refused to send a request, when it did: the message of undici's error, which names
+ * the header it refused, never its value (`invalid keep-alive header`). Otherwise `undefined`.
+ */
+function refusalOf(error: unknown): string | undefined {
+  const cause: unknown = error instanceof Error ? error.cause : undefined
+  if (!(cause instanceof Error)) return undefined
+  const code: unknown = (cause as { code?: unknown }).code
+  return typeof code === 'string' && REFUSAL_CODES.has(code) ? cause.message : undefined
 }
 
 function describe(error: unknown): string {
