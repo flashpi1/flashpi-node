@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Pull requests opened by GitHub Actions (release-please, OpenAPI sync) do not start
-  # workflows, so those workflows dispatch this one on their branch.
+  # By hand: gh workflow run ci.yml --ref <branch>. Such a run does not count for a pull
+  # request's required checks, which only take push and pull_request runs.
   workflow_dispatch:
 
 permissions:

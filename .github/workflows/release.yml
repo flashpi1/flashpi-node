@@ -4,6 +4,11 @@ name: Release
 # the Conventional Commits merged into main. Merging that PR is the approval: it tags the
 # version, creates the GitHub release and publishes it to npm here.
 #
+# release-please works with a token of the organization's GitHub App (the FLASHPI_BOT_CLIENT_ID
+# variable and FLASHPI_BOT_PRIVATE_KEY secret). A pull request opened with GITHUB_TOKEN gets
+# its CI only after someone approves it, and checks from dispatched runs do not count for the
+# required ones; one opened with the App's token runs CI like any other.
+#
 # npm trusted publishing (OIDC): no npm token is stored anywhere. npmjs.com trusts this
 # workflow file of flashpi1/flashpi-node, and the package gets a provenance statement. The
 # trusted publisher can only be configured once the package exists, so 0.1.0 is published by
@@ -23,26 +28,36 @@ jobs:
   release-please:
     name: Release PR
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
+    # release-please uses the App's token, not GITHUB_TOKEN.
+    permissions: {}
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       prs_created: ${{ steps.release.outputs.prs_created }}
       pr: ${{ steps.release.outputs.pr }}
     steps:
+      # A one-hour token for this repository only, with just what release-please needs: push the
+      # release branch, tag and release (contents), open the PR (pull requests) and label it
+      # (issues). It is revoked when the job ends.
+      - id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.FLASHPI_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.FLASHPI_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
+          token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # A pull request opened with GITHUB_TOKEN starts no workflow, but a dispatched one runs: start
-  # CI (its checks are required on main) and the live API test on the release branch.
-  check-release-pr:
-    name: Check the release PR
+  # CI runs on the release PR by itself. The live API test spends the demo issuer's daily quota,
+  # so it only runs on demand: start it on the release branch whenever release-please updates it.
+  live-test:
+    name: Live test on the release PR
     needs: release-please
     if: needs.release-please.outputs.prs_created == 'true' && needs.release-please.outputs.pr != ''
     runs-on: ubuntu-24.04
@@ -53,9 +68,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       BRANCH: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
     steps:
-      - run: |
-          gh workflow run ci.yml --ref "$BRANCH"
-          gh workflow run live.yml --ref "$BRANCH"
+      - run: gh workflow run live.yml --ref "$BRANCH"
 
   publish:
     name: Publish to npm
