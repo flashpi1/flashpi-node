@@ -308,3 +308,88 @@ describe('Content-Length and Transfer-Encoding', () => {
     })
   }
 })
+
+describe('header values from JavaScript callers', () => {
+  it('checks a value that is not text as the text Headers would send', async () => {
+    const { flashpi, sent } = client([])
+    const secret = valueWith('\x01')
+    const shapes = {
+      'an array': ['a', secret],
+      'an object with toString': { toString: () => secret },
+    }
+    for (const value of Object.values(shapes)) {
+      const error = await rejectionOf(flashpi.status.get({ headers: { 'x-a': value as never } }))
+      expect(error).toBeInstanceOf(TypeError)
+      expect((error as TypeError).message).toBe(
+        'The value of the "x-a" header in headers has a line break or another control character',
+      )
+      expectNothingOf(secret, error)
+    }
+    expect(sent).toHaveLength(0)
+  })
+
+  it('turns a value into text once, and sends the text it checked', async () => {
+    let calls = 0
+    const value = { toString: () => (++calls === 1 ? 'checked' : valueWith('\x01')) }
+    const { flashpi, sent } = client([json({})])
+    await flashpi.status.get({ headers: { 'x-a': value as never } })
+    expect(calls).toBe(1)
+    expect(sent[0]?.headers.get('x-a')).toBe('checked')
+  })
+
+  it('refuses a symbol with its own TypeError, as Headers does', async () => {
+    const { flashpi, sent } = client([])
+    await expect(flashpi.status.get({ headers: { 'x-a': Symbol('x') as never } })).rejects.toThrow(
+      new TypeError('The value of the "x-a" header in headers is a symbol, not text'),
+    )
+    expect(sent).toHaveLength(0)
+  })
+
+  it('checks headers given as pairs', async () => {
+    const { flashpi, sent } = client([])
+    const pairs = [['x-a', valueWith('\x01')]]
+    await expect(flashpi.status.get({ headers: pairs as never })).rejects.toThrow(TypeError)
+    expect(sent).toHaveLength(0)
+  })
+
+  it('checks an Idempotency-Key in headers whatever their shape', async () => {
+    const { flashpi, sent } = client([json({})])
+    const key = valueWith('\x01')
+    for (const headers of [new Headers({ 'Idempotency-Key': key }), [['Idempotency-Key', key]]]) {
+      const error = await rejectionOf(
+        flashpi.invoices.create({} as never, { headers: headers as never }),
+      )
+      expect(error).toBeInstanceOf(TypeError)
+      expectNothingOf(key, error)
+    }
+    expect(sent).toHaveLength(0)
+    // A good one is still honored, as before.
+    await flashpi.invoices.create({} as never, {
+      headers: new Headers({ 'Idempotency-Key': ' order-42 ' }) as never,
+    })
+    expect(sent[0]?.headers.get('idempotency-key')).toBe('order-42')
+  })
+})
+
+describe('header changes while a retry waits', () => {
+  it('sends every attempt with the headers checked before the first one', async () => {
+    const defaultHeaders: Record<string, string> = { 'x-team': 'billing' }
+    const headers: Record<string, string> = { 'x-trace': 'trace-1' }
+    const { flashpi, sent } = client(
+      [
+        () => {
+          // The caller changes both objects while the SDK waits to retry.
+          defaultHeaders['x-team'] = valueWith('\x01')
+          headers['x-trace'] = valueWith('\x7f')
+          return problem(503, 'service_unavailable', {}, { 'retry-after': '0' })
+        },
+        json({}),
+      ],
+      { defaultHeaders, maxRetries: 1 },
+    )
+    await flashpi.status.get({ headers })
+    expect(sent).toHaveLength(2)
+    expect(sent[1]?.headers.get('x-team')).toBe('billing')
+    expect(sent[1]?.headers.get('x-trace')).toBe('trace-1')
+  })
+})

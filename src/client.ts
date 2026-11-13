@@ -108,12 +108,12 @@ export class Flashpi {
     const defaultHeaders = options.defaultHeaders ?? {}
     // Checked here, so a bad value fails when the client is created (and again before each
     // request, in case the object changes later).
-    checkHeaders('defaultHeaders', defaultHeaders)
+    const checkedDefaultHeaders = checkHeaders('defaultHeaders', defaultHeaders)
     const language =
       options.language === undefined
         ? undefined
         : (headerValue('language', options.language) as Language)
-    if (new Headers(defaultHeaders).has('idempotency-key')) {
+    if (new Headers(checkedDefaultHeaders).has('idempotency-key')) {
       throw new FlashpiError(
         'defaultHeaders cannot carry an Idempotency-Key: it must be unique per operation. Pass { idempotencyKey } to each create() instead',
       )

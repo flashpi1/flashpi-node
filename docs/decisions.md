@@ -16,21 +16,27 @@ on Node.js, Bun, Deno and Workers.
   it comes from `FLASHPI_API_KEY`. Before, a key with a line break or a NUL made every request
   fail with a `TypeError` from `Headers` whose message quoted `Bearer <key>`, and inner spaces
   were sent.
-- **Header values.** Every value the SDK turns into a header (`idempotencyKey`,
-  `correlationId`, `language`, `headers`, and the client's `defaultHeaders` and `language`) is
-  checked before anything is sent, after trimming the spaces, tabs and line breaks around it as
-  `Headers` does. A control character other than a tab left inside throws a `TypeError` that
-  names the header or option, never the value, and is not retried; the client's settings fail
-  when the client is created (and `defaultHeaders` again before each request, in case the
-  object changed). Before, `\x01`, `\x0b`, `\x7f` and the like passed `Headers`; Node.js's fetch
-  then refused them while sending ("fetch failed"), which the SDK retried as a
-  `ConnectionError`, and Bun and Workers sent them. `Content-Length` and `Transfer-Encoding` in
-  `headers` or `defaultHeaders` throw a `TypeError` too: fetch sets them from the body, and a
-  wrong one failed (or hung until the timeout) only while sending, as a retried network error.
-  What `Headers` refused at once is still refused at once with a `TypeError`: characters above
-  U+00FF are left to it (Node.js and Bun refuse them; Workers sends them as UTF-8), and Latin-1
-  values (0x80 to 0xFF) are still sent. As in Python, the trimmed Idempotency-Key, the one sent,
-  is the one on errors, and a request `language` of spaces only keeps the client's.
+- **Header values.** Every value the SDK turns into a header (`idempotencyKey`, `correlationId`,
+  `language`, `headers`, and the client's `defaultHeaders` and `language`) is checked before
+  anything is sent, after trimming the spaces, tabs and line breaks around it as `Headers` does.
+  A control character other than a tab left inside throws a `TypeError` that names the header or
+  option, never the value, and is not retried; the client's settings fail when the client is
+  created (and `defaultHeaders` again before each request, in case the object changed). Every
+  attempt of a request is built from the copies checked before the first one, so a value the
+  caller changes while a retry waits is not sent. A value that is not text (from JavaScript) is
+  turned into text once, as `Headers` would, and that text is checked and sent; a symbol is
+  refused. An `Idempotency-Key` in `headers` is checked whatever their shape (an object, a
+  `Headers` instance or pairs). Trimming takes linear time (a first version used a regular
+  expression that took seconds on a long run of inner spaces). Before, `\x01`, `\x0b`, `\x7f`
+  and the like passed `Headers`; Node.js's fetch then refused them while sending ("fetch
+  failed"), which the SDK retried as a `ConnectionError`, and Bun and Workers sent them.
+  `Content-Length` and `Transfer-Encoding` in `headers` or `defaultHeaders` throw a `TypeError`
+  too: fetch sets them from the body, and a wrong one failed (or hung until the timeout) only
+  while sending, as a retried network error. What `Headers` refused at once is still refused at
+  once with a `TypeError`: characters above U+00FF are left to it (Node.js and Bun refuse them;
+  Workers sends them as UTF-8), and Latin-1 values (0x80 to 0xFF) are still sent. As in Python,
+  the trimmed Idempotency-Key, the one sent, is the one on errors, and a request `language` of
+  spaces only keeps the client's.
 - **Publishing.** The Release workflow's publish job held `id-token: write`, which npm's
   trusted publishing turns into a publish token, while it ran `pnpm install`, the typecheck,
   the tests and the build: code of the repository and of every dependency. A build job, with a

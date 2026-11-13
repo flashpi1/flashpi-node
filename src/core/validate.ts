@@ -48,17 +48,18 @@ const CONTROL_CHARACTER = /[\x00-\x08\x0a-\x1f\x7f]/
 const FRAMING_HEADERS = new Set(['content-length', 'transfer-encoding'])
 
 /**
- * A header value as `Headers` sends it: without the spaces, tabs and line breaks around it.
- * Throws a TypeError when a line break or another control character other than a tab is left
+ * A header value as `Headers` sends it: as text, without the spaces, tabs and line breaks around
+ * it. Throws a TypeError when a line break or another control character other than a tab is left
  * inside; its message names `label`, never the value, which may be a secret. Characters above
  * U+00FF are left to `Headers`, which refuses them on Node.js and Bun and sends them as UTF-8 on
  * Workers.
  */
 export function headerValue(label: string, value: string): string {
-  // JavaScript callers may pass other values; Headers turns them into text.
+  // JavaScript callers may pass other values: turned into text once, as Headers would, so the
+  // text checked is the text sent. Headers cannot turn a symbol into text either.
   const raw: unknown = value
-  if (typeof raw !== 'string') return value
-  const trimmed = trimHttpWhitespace(raw)
+  if (typeof raw === 'symbol') throw new TypeError(`${label} is a symbol, not text`)
+  const trimmed = trimHttpWhitespace(typeof raw === 'string' ? raw : String(raw))
   if (CONTROL_CHARACTER.test(trimmed)) {
     throw new TypeError(`${label} has a line break or another control character`)
   }
@@ -66,17 +67,27 @@ export function headerValue(label: string, value: string): string {
 }
 
 /**
- * Checks the headers a caller adds (`headers`, `defaultHeaders`): every value with
+ * The headers a caller adds (`headers`, `defaultHeaders`), checked: every value with
  * {@link headerValue}, and no Content-Length or Transfer-Encoding, which fetch sets from the
- * body (a TypeError).
+ * body (a TypeError). Returns a copy with the values as they are sent, so requests are built
+ * from what was checked even if the caller changes the object afterwards.
  */
-export function checkHeaders(label: string, headers: Record<string, string> | undefined): void {
+export function checkHeaders(
+  label: string,
+  headers: Record<string, string> | undefined,
+): Record<string, string> {
+  const checked: [string, string][] = []
   for (const [name, value] of Object.entries(headers ?? {})) {
     if (FRAMING_HEADERS.has(name.toLowerCase())) {
       throw new TypeError(
         `${label} cannot carry ${JSON.stringify(name)}: fetch sets it from the body`,
       )
     }
-    headerValue(`The value of the ${JSON.stringify(name)} header in ${label}`, value)
+    checked.push([
+      name,
+      headerValue(`The value of the ${JSON.stringify(name)} header in ${label}`, value),
+    ])
   }
+  // fromEntries defines every name as its own property, even "__proto__".
+  return Object.fromEntries(checked)
 }
