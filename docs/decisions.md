@@ -3,6 +3,33 @@
 Settled decisions about @flashpi/node, newest first. Each one was taken with the Flashpi
 product owner.
 
+## 2026-11-13: release PRs run CI by themselves
+
+The 0.1.0 release PR could not merge until its CI run was approved by hand. Since 2026-06-11
+GitHub holds the CI of a pull request created or updated with `GITHUB_TOKEN` until someone
+with write access approves it, and no setting lifts that. The checks of the `ci.yml` runs the
+Release workflow dispatched did not count: required checks only take push and pull_request
+runs.
+
+- **A GitHub App** (owner's choice, over approving by hand each time or a personal token): the
+  organization's app opens and updates the release PR and the OpenAPI sync PR, so their CI runs
+  like on any PR. The token lasts one hour, covers this repository only, carries only the
+  permissions each job needs, and is revoked when the job ends.
+- **The App's key never meets dependency code.** A job gets every secret it references when it
+  starts, and anything a dependency runs can reach the rest of the job. So OpenAPI sync is two
+  jobs: one installs, regenerates and checks with no secret and hands the two contract files
+  over as an artifact; the other runs no repository or dependency code, copies just those two
+  files into a fresh checkout (the artifact is downloaded outside it) and opens the PR with the
+  App's token. In Release, the key only reaches the job that runs the two pinned actions that
+  create the token and run release-please.
+- **No more dispatched CI.** The Release workflow only starts the live API test on the release
+  branch. release-please runs with `permissions: {}`; the only write permissions left on
+  `GITHUB_TOKEN` are `actions: write` in the live-test job, to start `live.yml`, and
+  `id-token: write` in the publish job, for npm's OIDC.
+- **Required checks only from GitHub Actions** (owner's choice): the five required checks on
+  `main` count only when the GitHub Actions app reports them, so a commit status with the same
+  name cannot stand in for CI.
+
 ## 2026-11-12: after the first review
 
 An adversarial review (five lenses, every finding checked by a second reviewer) confirmed 25
