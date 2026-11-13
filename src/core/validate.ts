@@ -45,6 +45,12 @@ function trimHttpWhitespace(value: string): string {
 const CONTROL_CHARACTER = /[\x00-\x08\x0a-\x1f\x7f]/
 
 /**
+ * A lone surrogate (half of a pair: a character outside the BMP cut in two). It has no UTF-8:
+ * Workers sends it as ill-formed bytes; Node.js and Bun refuse it.
+ */
+const LONE_SURROGATE = /[\ud800-\udfff]/u
+
+/**
  * Headers fetch handles itself, with why a caller cannot set them. Content-Length and
  * Transfer-Encoding frame the body: another value would frame it wrongly. Node.js's fetch
  * refuses Keep-Alive, Upgrade and Expect while sending; Bun hangs on Upgrade and Workers on
@@ -61,9 +67,9 @@ const FETCH_HEADERS = new Map([
 /**
  * A header value as `Headers` sends it: as text, without the spaces, tabs and line breaks around
  * it. Throws a TypeError when a line break or another control character other than a tab is left
- * inside; its message names `label`, never the value, which may be a secret. Characters above
- * U+00FF are left to `Headers`, which refuses them on Node.js and Bun and sends them as UTF-8 on
- * Workers.
+ * inside, or a lone surrogate, or a character the runtime's `Headers` refuses (characters above
+ * U+00FF on Node.js and Bun; Workers sends them as UTF-8). Its message names `label`, never the
+ * value, which may be a secret (Bun's `Headers` quotes it).
  */
 export function headerValue(label: string, value: string): string {
   // JavaScript callers may pass other values: turned into text once, as Headers would, so the
@@ -73,6 +79,16 @@ export function headerValue(label: string, value: string): string {
   const trimmed = trimHttpWhitespace(typeof raw === 'string' ? raw : String(raw))
   if (CONTROL_CHARACTER.test(trimmed)) {
     throw new TypeError(`${label} has a line break or another control character`)
+  }
+  if (LONE_SURROGATE.test(trimmed)) {
+    throw new TypeError(`${label} has a character that cannot be sent as UTF-8`)
+  }
+  try {
+    new Headers().set('x', trimmed)
+  } catch {
+    throw new TypeError(
+      `${label} has a character this runtime cannot send in a header, such as one above U+00FF`,
+    )
   }
   return trimmed
 }

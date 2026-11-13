@@ -275,13 +275,47 @@ describe('header values the SDK builds', () => {
     expect(sent[0]?.headers.get('x-correlation-id')).toBe('7')
   })
 
-  it('leaves characters above U+00FF to Headers, which refuses them at once', async () => {
-    const { flashpi, sent } = client([])
-    const euro = String.fromCharCode(0x20ac)
-    await expect(flashpi.status.get({ headers: { 'x-a': `10 ${euro}` } })).rejects.toThrow(
-      TypeError,
-    )
-    expect(sent).toHaveLength(0)
+  const refusedByHeaders = {
+    // Node.js and Bun refuse these at once; Bun's TypeError quotes the whole value.
+    'a character above U+00FF': [String.fromCharCode(0x20ac), /cannot send in a header/],
+    'an emoji': ['\u{1f600}', /cannot send in a header/],
+    // Workers would send these as ill-formed UTF-8.
+    'a lone high surrogate': ['\ud800', /cannot be sent as UTF-8/],
+    'a lone low surrogate': ['\udc00', /cannot be sent as UTF-8/],
+    'a surrogate at the end': ['\ud83d', /cannot be sent as UTF-8/],
+  } as const
+
+  for (const [what, [character, message]] of Object.entries(refusedByHeaders)) {
+    it(`refuses ${what} at once, without showing the value`, async () => {
+      const value = valueWith(character)
+      const { flashpi, sent } = client([])
+      const calls = [
+        flashpi.status.get({ headers: { 'x-a': value } }),
+        flashpi.invoices.create({} as never, { idempotencyKey: value }),
+        flashpi.status.get({ correlationId: value }),
+      ]
+      for (const call of calls) {
+        const error = await rejectionOf(call)
+        expect(error).toBeInstanceOf(TypeError)
+        expect((error as TypeError).message).toMatch(message)
+        expect((error as TypeError).cause).toBeUndefined()
+        expectNothingOf(value, error)
+      }
+      const inDefaults = thrownBy(
+        () => new Flashpi(TEST_KEY, { defaultHeaders: { 'x-proxy-token': value } }),
+      )
+      expect((inDefaults as TypeError).message).toMatch(
+        /^The value of the "x-proxy-token" header in defaultHeaders has a character /,
+      )
+      expectNothingOf(value, inDefaults)
+      expect(sent).toHaveLength(0)
+    })
+  }
+
+  it('does not take a pair of surrogates (an emoji) for a lone one', () => {
+    // Workers sends an emoji as UTF-8; Node.js refuses it as above U+00FF.
+    const error = thrownBy(() => new Flashpi(TEST_KEY, { defaultHeaders: { 'x-a': '\u{1f600}' } }))
+    expect((error as TypeError).message).not.toMatch(/UTF-8/)
   })
 })
 

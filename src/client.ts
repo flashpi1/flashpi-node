@@ -40,8 +40,9 @@ export interface ClientOptions {
   /**
    * Headers sent with every request (not `Idempotency-Key`: that one is per request). Not
    * Content-Length, Transfer-Encoding, Keep-Alive, Upgrade or Expect either, which fetch handles
-   * itself. Such a header, or a value with a line break or another control character (other
-   * than a tab), throws a TypeError when the client is created.
+   * itself. Such a header, or a value with a line break, another control character (other than
+   * a tab), a lone surrogate or a character the runtime's `Headers` refuses (above U+00FF on
+   * Node.js and Bun), throws a TypeError when the client is created.
    */
   defaultHeaders?: Record<string, string> | undefined
 }

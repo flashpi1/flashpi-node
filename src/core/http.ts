@@ -33,10 +33,12 @@ export interface RequestOptions {
   correlationId?: string | undefined
   /**
    * Extra headers for this request. Not Content-Length, Transfer-Encoding, Keep-Alive, Upgrade
-   * or Expect, which fetch handles itself. Such a header, or a value with a line break or
-   * another control character (other than a tab), throws a TypeError before anything is sent,
-   * as do bad `idempotencyKey`, `correlationId` and `language` values; the spaces, tabs and line
-   * breaks around a value are trimmed, as `Headers` does.
+   * or Expect, which fetch handles itself. Such a header, or a value with a line break, another
+   * control character (other than a tab), a lone surrogate or a character the runtime's
+   * `Headers` refuses (above U+00FF on Node.js and Bun), throws a TypeError before anything is
+   * sent, as do such `idempotencyKey`, `correlationId` and `language` values; the message never
+   * shows the value. The spaces, tabs and line breaks around a value are trimmed, as `Headers`
+   * does.
    */
   headers?: Record<string, string> | undefined
 }

@@ -39,9 +39,11 @@ on Node.js, Bun, Deno and Workers.
   before sending it (undici's `UND_ERR_INVALID_ARG` or `UND_ERR_NOT_SUPPORTED`, such as
   `Connection: upgrade` on Node.js 22), the SDK throws a `FlashpiError` that is not retried, as
   Python does when httpx refuses one, with undici's reason, which names the header and never its
-  value. What `Headers` refused at once is still refused at once with a `TypeError`: characters
-  above U+00FF are left to it (Node.js and Bun refuse them; Workers sends them as UTF-8), and
-  Latin-1 values (0x80 to 0xFF) are still sent. As in Python, the trimmed Idempotency-Key, the
+  value. What `Headers` refused at once is still refused at once with a `TypeError`, but the SDK
+  asks `Headers` first and throws its own error, which never shows the value (Bun's quotes it):
+  characters above U+00FF are still refused on Node.js and Bun and sent as UTF-8 on Workers, and
+  Latin-1 values (0x80 to 0xFF) are still sent. A lone surrogate is refused on every runtime, as
+  in Python: Workers sent it as ill-formed UTF-8. As in Python, the trimmed Idempotency-Key, the
   one sent, is the one on errors, and a request `language` of spaces only keeps the client's.
 - **Publishing.** The Release workflow's publish job held `id-token: write`, which npm's
   trusted publishing turns into a publish token, while it ran `pnpm install`, the typecheck,
