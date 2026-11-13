@@ -4,10 +4,11 @@ name: Release
 # the Conventional Commits merged into main. Merging that PR is the approval: it tags the
 # version, creates the GitHub release and publishes it to npm here.
 #
-# release-please works with a token of the organization's GitHub App (the FLASHPI_BOT_CLIENT_ID
-# variable and FLASHPI_BOT_PRIVATE_KEY secret). A pull request opened with GITHUB_TOKEN gets
-# its CI only after someone approves it, and checks from dispatched runs do not count for the
-# required ones; one opened with the App's token runs CI like any other.
+# release-please works with a token of the organization's GitHub App (the organization variable
+# FLASHPI_BOT_CLIENT_ID and secret FLASHPI_BOT_PRIVATE_KEY, shared with flashpi-python). A pull
+# request opened with GITHUB_TOKEN gets its CI only after someone approves it, and checks from
+# dispatched runs do not count for the required ones; one opened with the App's token runs CI
+# like any other.
 #
 # npm trusted publishing (OIDC): no npm token is stored anywhere. npmjs.com trusts this
 # workflow file (release.yml) of flashpi1/flashpi-node in the `npm` environment, and the

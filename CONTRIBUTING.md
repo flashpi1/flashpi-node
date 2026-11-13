@@ -28,7 +28,9 @@ pnpm openapi:check && pnpm lint && pnpm format:check && pnpm typecheck && pnpm t
   `bun test/runtimes/esm.mjs`, `deno run test/runtimes/esm.mjs`.
 - `pnpm test:live` calls the real API in test mode. It needs `FLASHPI_TEST_API_KEY` (an
   `fp_test_` key, read_write) and `FLASHPI_DEMO_ISSUER_ID`, and issues one test invoice on the
-  demo issuer, which has a daily quota: run it only when needed.
+  demo issuer, which has a daily quota: run it only when needed. In CI they are an organization
+  secret and variable of `flashpi1`, shared with flashpi-python: change them in the
+  organization's settings, since a repository copy would shadow them here only.
 
 ## Code conventions
 
@@ -80,12 +82,14 @@ checks.
 
 ### The GitHub App
 
-An app of the `flashpi1` organization, installed on `flashpi-node` only, with no webhook and
-these repository permissions: Contents, Pull requests and Issues, read and write. Its Client
-ID is the repository variable `FLASHPI_BOT_CLIENT_ID` and its private key the repository secret
-`FLASHPI_BOT_PRIVATE_KEY`. The workflows create a one-hour token per run with only the
-permissions each job needs. To rotate the key, generate a new one in the app's settings, update
-the secret, then delete the old key.
+An app of the `flashpi1` organization, installed on `flashpi-node` (as on `flashpi-python`),
+with no webhook and these repository permissions: Contents, Pull requests and Issues, read and
+write. Its Client ID is the organization variable `FLASHPI_BOT_CLIENT_ID` and its private key
+the organization secret `FLASHPI_BOT_PRIVATE_KEY`, both shared with flashpi-python. The
+workflows create a one-hour token per run, for this repository only, with only the permissions
+each job needs. To rotate the key, generate a new one in the app's settings, update the
+organization secret (not a repository one: a repository copy would shadow it here only, and the
+other repository would break once the old key is deleted), then delete the old key.
 
 When a release is created, a build job checks out the tag, installs, typechecks, tests, builds
 and packs it with a read-only token and no secret, and hands the tarball over as an artifact
