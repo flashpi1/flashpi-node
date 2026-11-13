@@ -20,7 +20,21 @@ export function validRetries(name: string, value: number): number {
 }
 
 /** Spaces, tabs and line breaks: `Headers` trims them from both ends of a value. */
-const AROUND_HEADER_VALUE = /^[\t\n\r ]+|[\t\n\r ]+$/g
+function isHttpWhitespace(code: number): boolean {
+  return code === 0x09 || code === 0x0a || code === 0x0d || code === 0x20
+}
+
+/**
+ * `value` without the HTTP whitespace at both ends, in linear time. (A regular expression such
+ * as `/^[\t\n\r ]+|[\t\n\r ]+$/g` takes quadratic time on a long run of inner spaces.)
+ */
+function trimHttpWhitespace(value: string): string {
+  let start = 0
+  let end = value.length
+  while (end > start && isHttpWhitespace(value.charCodeAt(end - 1))) end--
+  while (start < end && isHttpWhitespace(value.charCodeAt(start))) start++
+  return value.slice(start, end)
+}
 
 /**
  * Control characters other than the tab. `Headers` refuses a line break or a NUL at once,
@@ -44,7 +58,7 @@ export function headerValue(label: string, value: string): string {
   // JavaScript callers may pass other values; Headers turns them into text.
   const raw: unknown = value
   if (typeof raw !== 'string') return value
-  const trimmed = raw.replace(AROUND_HEADER_VALUE, '')
+  const trimmed = trimHttpWhitespace(raw)
   if (CONTROL_CHARACTER.test(trimmed)) {
     throw new TypeError(`${label} has a line break or another control character`)
   }

@@ -242,6 +242,23 @@ describe('header values the SDK builds', () => {
     expect((error as FlashpiError).idempotencyKey).toBe('order-42')
   })
 
+  it('trims in linear time, whatever the run of spaces or tabs inside a value', async () => {
+    // A trimming regular expression took about 6 s on each of these (quadratic time).
+    const spaces = `a${' '.repeat(100_000)}b`
+    const tabs = `a${'\t'.repeat(100_000)}b`
+    const { flashpi, sent } = client([json({})])
+    const started = performance.now()
+    await flashpi.invoices.create({} as never, {
+      idempotencyKey: spaces,
+      correlationId: tabs,
+      headers: { 'x-trace': spaces },
+    })
+    expect(performance.now() - started).toBeLessThan(2_000)
+    expect(sent[0]?.headers.get('idempotency-key')).toBe(spaces)
+    expect(sent[0]?.headers.get('x-correlation-id')).toBe(tabs)
+    expect(sent[0]?.headers.get('x-trace')).toBe(spaces)
+  })
+
   it('keeps the client language when a request asks for an empty one', async () => {
     const { flashpi, sent } = client([json({}), json({})], { language: 'es' })
     await flashpi.status.get({ language: '  ' as never })
