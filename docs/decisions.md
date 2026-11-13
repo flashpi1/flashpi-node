@@ -3,6 +3,55 @@
 Settled decisions about @flashpi/node, newest first. Each one was taken with the Flashpi
 product owner.
 
+## 2026-11-13: hardening after the Python SDK's reviews
+
+Two adversarial reviews of the Python SDK (flashpi-python) found five defects that this SDK had
+too. The owner approved fixing them here with the rules Python follows; each code fix has a
+regression test that fails without it. The checks are plain JavaScript, so they behave the same
+on Node.js, Bun, Deno and Workers.
+
+- **API key.** It is still trimmed as `String.prototype.trim()` does, and its prefix checked;
+  then it must be visible ASCII without spaces (`/^[\x21-\x7e]+$/`). Otherwise the client is
+  not created: a `FlashpiError` says why without showing the key or any part of it, also when
+  it comes from `FLASHPI_API_KEY`. Before, a key with a line break or a NUL made every request
+  fail with a `TypeError` from `Headers` whose message quoted `Bearer <key>`, and inner spaces
+  were sent.
+- **Header values.** Every value the SDK turns into a header (`idempotencyKey`,
+  `correlationId`, `language`, `headers`, and the client's `defaultHeaders` and `language`) is
+  checked before anything is sent, after trimming the spaces, tabs and line breaks around it as
+  `Headers` does. A control character other than a tab left inside throws a `TypeError` that
+  names the header or option, never the value, and is not retried; the client's settings fail
+  when the client is created (and `defaultHeaders` again before each request, in case the
+  object changed). Before, `\x01`, `\x0b`, `\x7f` and the like passed `Headers`; Node.js's fetch
+  then refused them while sending ("fetch failed"), which the SDK retried as a
+  `ConnectionError`, and Bun and Workers sent them. `Content-Length` and `Transfer-Encoding` in
+  `headers` or `defaultHeaders` throw a `TypeError` too: fetch sets them from the body, and a
+  wrong one failed (or hung until the timeout) only while sending, as a retried network error.
+  What `Headers` refused at once is still refused at once with a `TypeError`: characters above
+  U+00FF are left to it (Node.js and Bun refuse them; Workers sends them as UTF-8), and Latin-1
+  values (0x80 to 0xFF) are still sent. As in Python, the trimmed Idempotency-Key, the one sent,
+  is the one on errors, and a request `language` of spaces only keeps the client's.
+- **Publishing.** The Release workflow's publish job held `id-token: write`, which npm's
+  trusted publishing turns into a publish token, while it ran `pnpm install`, the typecheck,
+  the tests and the build: code of the repository and of every dependency. A build job, with a
+  read-only token and no environment, secret or cache, now checks out the tag, installs with the
+  frozen lockfile, typechecks, tests, builds, runs `pack:check`, packs with `npm pack` what
+  `npm publish` would publish, checks the tarball's name against the tag and keeps it 30 days as
+  an artifact (the `npm` environment's approval can wait). The publish job, in the `npm`
+  environment with `id-token: write` only, checks out and installs nothing: it sets up the
+  Node.js of `.nvmrc` (as the build job reports it), checks that npm is 11.5.1 or later and runs
+  `npm publish <tarball> --access public`. The trusted publisher (workflow `release.yml`,
+  environment `npm`) does not change, and trusted publishing generates the provenance statement
+  by itself, so there is no `--provenance`.
+- **The contract download.** `pnpm openapi:sync` downloaded `FLASHPI_OPENAPI_URL` whatever its
+  scheme, and fetch followed redirects to plain HTTP by itself. `scripts/download.mjs` now
+  refuses a URL that is not `https://` and follows redirects by hand, at most five, only to
+  `https://` URLs, each refused before it is requested.
+- **Organization settings.** `FLASHPI_BOT_CLIENT_ID`, `FLASHPI_BOT_PRIVATE_KEY`,
+  `FLASHPI_TEST_API_KEY` and `FLASHPI_DEMO_ISSUER_ID` are organization variables and secrets of
+  `flashpi1`, shared with flashpi-python, not repository ones as the docs said. Rotate or change
+  them in the organization: a repository copy would shadow them in this repository only.
+
 ## 2026-11-13: release PRs run CI by themselves
 
 The 0.1.0 release PR could not merge until its CI run was approved by hand. Since 2026-06-11
