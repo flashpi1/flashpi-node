@@ -20,7 +20,12 @@ import { Webhooks } from './webhooks'
 
 /** Settings of a Flashpi client. */
 export interface ClientOptions {
-  /** The API key (`fp_test_...` or `fp_live_...`). Defaults to the FLASHPI_API_KEY variable. */
+  /**
+   * The API key (`fp_test_...` or `fp_live_...`). Defaults to the FLASHPI_API_KEY variable.
+   * Spaces and line breaks around it are trimmed; a key that still has a character other than
+   * visible ASCII (a space, a line break, ...) is refused with a `FlashpiError` that never
+   * shows it.
+   */
   apiKey?: string | undefined
   /** Milliseconds to wait for each attempt of a request (default 60 000). */
   timeout?: number | undefined
@@ -143,15 +148,30 @@ function environmentOf(apiKey: string | undefined, envDenied: unknown): Environm
       'Missing API key: pass it to new Flashpi(apiKey) or set the FLASHPI_API_KEY environment variable',
     )
   }
-  if (apiKey.startsWith('fp_test_')) return 'test'
-  if (apiKey.startsWith('fp_live_')) return 'live'
-  if (apiKey.startsWith('whsec_')) {
+  const environment = apiKey.startsWith('fp_test_')
+    ? 'test'
+    : apiKey.startsWith('fp_live_')
+      ? 'live'
+      : undefined
+  if (environment === undefined) {
+    if (apiKey.startsWith('whsec_')) {
+      throw new FlashpiError(
+        'That is a webhook signing secret (whsec_...), not an API key: use it with flashpi.webhooks',
+      )
+    }
+    throw new FlashpiError('The API key must start with fp_test_ or fp_live_')
+  }
+  if (!API_KEY_CHARACTERS.test(apiKey)) {
+    // Never the key: Headers would refuse it in the Authorization header and quote it whole.
     throw new FlashpiError(
-      'That is a webhook signing secret (whsec_...), not an API key: use it with flashpi.webhooks',
+      'The API key has spaces, line breaks or other characters an API key cannot have: copy it again from the Flashpi console',
     )
   }
-  throw new FlashpiError('The API key must start with fp_test_ or fp_live_')
+  return environment
 }
+
+/** What an API key is made of: visible ASCII characters, without spaces. */
+const API_KEY_CHARACTERS = /^[\x21-\x7e]+$/
 
 /**
  * API keys are secrets: refuse to run in a browser, where page visitors could read them. A
