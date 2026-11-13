@@ -97,7 +97,8 @@ jobs:
         with:
           ref: refs/tags/${{ needs.release-please.outputs.tag_name }}
           persist-credentials: false
-      # Tags are not protected: anyone with write access could move this one after the release.
+      # A ruleset keeps v* tags from moving; check anyway that this one is where release-please
+      # put it, in case that ruleset is ever changed.
       - name: Check the tag is still on the released commit
         env:
           SHA: ${{ needs.release-please.outputs.sha }}
