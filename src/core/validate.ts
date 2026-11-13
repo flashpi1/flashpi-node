@@ -100,6 +100,12 @@ export function headerValue(label: string, value: string): string {
  * Workers' types), so a value typed as that `HeadersInit` fits too, with or without the DOM
  * library. Exported, so a consumer's declarations name it instead of the runtime's `HeadersInit`
  * (with only @types/node, undici-types' one, which a pnpm project cannot name).
+ *
+ * To read one, pass it to `new Headers()`, which takes every shape. TypeScript's types for that
+ * constructor take no `Map`, generator or read-only array, so the call needs a cast:
+ * `new Headers(headers as ConstructorParameters<typeof Headers>[0])`. Spreading one
+ * (`{ ...headers }`) drops a `Headers` instance or a `Map` and turns pairs into headers named
+ * `0`, `1`, ....
  */
 export type HeadersLike =
   | Record<string, string>

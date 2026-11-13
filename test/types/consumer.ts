@@ -56,6 +56,14 @@ export function headersOf(options: RequestOptions, client: ClientOptions): Heade
   return [options.headers ?? init, client.defaultHeaders ?? init]
 }
 
+/** A wrapper reads them with `new Headers()`, which needs a cast for its TypeScript types. */
+export function withTenant(options: RequestOptions, client: ClientOptions): Headers[] {
+  type Init = ConstructorParameters<typeof Headers>[0]
+  const headers = new Headers(options.headers as Init)
+  headers.set('x-tenant', 'tenant-1')
+  return [headers, new Headers(client.defaultHeaders as Init)]
+}
+
 /** defaultHeaders in the same shapes. */
 export function setsDefaultHeaders(init: RequestInit['headers'], request: Request): Flashpi[] {
   const pairs: [string, string][] = [['x-team', 'billing']]

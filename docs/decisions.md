@@ -81,7 +81,14 @@ for headers in every shape `Headers` takes (the two bullets after _Header values
   as `HeadersLike`, so a consumer's declarations that infer it from these options name it: when
   it was not, they spelled out the runtime's `HeadersInit`, which with only @types/node is
   undici-types' one, and a pnpm project, which cannot reach that package, failed to compile them
-  (TS2883, "cannot be named").
+  (TS2883, "cannot be named"). Every input that compiled before still does, but the type is wider
+  than the plain object it was: code that reads `headers` or `defaultHeaders` as one
+  (`options.headers?.['x-a']`, a `Record<string, string>` annotation) no longer compiles, and
+  spreading them (`{ ...options.headers }`), which still compiles, drops a `Headers` instance or
+  a `Map` and turns pairs into headers named `0`, `1`, .... Read them with `new Headers()`, which
+  takes every shape; TypeScript's types for it take no `Map`, generator or read-only array, so
+  the call needs a cast, as in `test/types/consumer.ts`:
+  `new Headers(options.headers as ConstructorParameters<typeof Headers>[0])`.
 - **Publishing.** The Release workflow's publish job held `id-token: write`, which npm's trusted
   publishing turns into a publish token, while it ran `pnpm install`, the typecheck, the tests
   and the build: code of the repository and of every dependency. A build job, with a read-only
