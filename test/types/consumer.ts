@@ -2,7 +2,14 @@
  * Compiled by `pnpm typecheck` as a consumer would see the SDK: with the DOM library instead of
  * @types/node (Next.js, Deno and Workers projects) and with exactOptionalPropertyTypes. Never run.
  */
-import { Flashpi, type RequestOptions, unwrapWebhook, type WebhookVerifyOptions } from '../../src'
+import {
+  type ClientOptions,
+  Flashpi,
+  type HeadersLike,
+  type RequestOptions,
+  unwrapWebhook,
+  type WebhookVerifyOptions,
+} from '../../src'
 
 declare const id: string
 declare const env: Record<string, string | undefined>
@@ -41,6 +48,12 @@ export async function sendsHeaders(
   await flashpi.status.get({ headers: init })
   const options: RequestOptions = { headers: init }
   console.log(options)
+}
+
+/** The type of both options is public, so a wrapper can name it. */
+export function headersOf(options: RequestOptions, client: ClientOptions): HeadersLike[] {
+  const init: HeadersLike = new Headers({ 'x-trace': 'trace-1' })
+  return [options.headers ?? init, client.defaultHeaders ?? init]
 }
 
 /** defaultHeaders in the same shapes. */

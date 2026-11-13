@@ -8,7 +8,7 @@ import type { AddressInfo } from 'node:net'
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { ConnectionError, Flashpi, FlashpiError, type RequestOptions } from '../src'
+import { ConnectionError, Flashpi, FlashpiError, type HeadersLike } from '../src'
 import { ID, TEST_KEY, client, json, mockFetch, page, problem } from './support'
 
 afterEach(() => {
@@ -498,8 +498,6 @@ function shapesOf(entries: [string, string][]): Record<string, () => HeadersLike
       })(),
   }
 }
-
-type HeadersLike = NonNullable<RequestOptions['headers']>
 
 describe('request headers in every shape Headers takes', () => {
   for (const [shape, headers] of Object.entries(

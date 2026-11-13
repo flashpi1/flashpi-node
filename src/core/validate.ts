@@ -98,7 +98,8 @@ export function headerValue(label: string, value: string): string {
  * `[name, value]` pairs (an array, a `Map` or another iterable). The last member is what
  * `new Headers()` takes in the consumer's own types (the DOM library, @types/node, Bun's or
  * Workers' types), so a value typed as that `HeadersInit` fits too, with or without the DOM
- * library.
+ * library. Exported, so a consumer's declarations name it instead of the runtime's `HeadersInit`
+ * (with only @types/node, undici-types' one, which a pnpm project cannot name).
  */
 export type HeadersLike =
   | Record<string, string>

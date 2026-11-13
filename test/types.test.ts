@@ -9,10 +9,13 @@ import type {
   APIError,
   ApiFieldErrorCode,
   Certificate,
+  ClientOptions,
   Document,
   Event,
   FieldErrorCode,
+  HeadersLike,
   Problem,
+  RequestOptions,
   ThinEvent,
 } from '../src'
 
@@ -41,5 +44,10 @@ describe('public types', () => {
       }
     }
     expectTypeOf<ThinEvent>().not.toHaveProperty('data')
+  })
+
+  it('exports the type of headers and defaultHeaders, so declarations can name it', () => {
+    expectTypeOf<RequestOptions['headers']>().toEqualTypeOf<HeadersLike | undefined>()
+    expectTypeOf<ClientOptions['defaultHeaders']>().toEqualTypeOf<HeadersLike | undefined>()
   })
 })

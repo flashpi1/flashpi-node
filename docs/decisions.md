@@ -77,7 +77,11 @@ for headers in every shape `Headers` takes (the two bullets after _Header values
   `Headers`, `Iterable<readonly [string, string]>`, or whatever `new Headers()` takes in the
   consumer's own types (the DOM library, @types/node, Bun's or Workers' types), so a value typed
   as `HeadersInit` compiles with and without the DOM library and with
-  `exactOptionalPropertyTypes` (`test/types/consumer.ts` is compiled both ways).
+  `exactOptionalPropertyTypes` (`test/types/consumer.ts` is compiled both ways). It is exported
+  as `HeadersLike`, so a consumer's declarations that infer it from these options name it: when
+  it was not, they spelled out the runtime's `HeadersInit`, which with only @types/node is
+  undici-types' one, and a pnpm project, which cannot reach that package, failed to compile them
+  (TS2883, "cannot be named").
 - **Publishing.** The Release workflow's publish job held `id-token: write`, which npm's trusted
   publishing turns into a publish token, while it ran `pnpm install`, the typecheck, the tests
   and the build: code of the repository and of every dependency. A build job, with a read-only
