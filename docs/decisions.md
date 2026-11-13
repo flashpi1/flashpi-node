@@ -88,13 +88,17 @@ for headers in every shape `Headers` takes (the two bullets after _Header values
   a `Map` and turns pairs into headers named `0`, `1`, .... Read them with `new Headers()`, which
   takes every shape; TypeScript's types for it take no `Map`, generator or read-only array, so
   the call needs a cast, as in `test/types/consumer.ts`:
-  `new Headers(options.headers as ConstructorParameters<typeof Headers>[0])`.
+  `new Headers(options.headers as ConstructorParameters<typeof Headers>[0])`. The owner confirmed
+  the last-of-two-names rule for plain objects and the `TypeError` for headers that are not an
+  object, and chose to release this as 0.2.0 rather than 0.1.1: within `^0.1.0` it would reach
+  code that may stop compiling, so its commits are `feat:` with a `BREAKING CHANGE` note.
 - **Publishing.** The Release workflow's publish job held `id-token: write`, which npm's trusted
   publishing turns into a publish token, while it ran `pnpm install`, the typecheck, the tests
   and the build: code of the repository and of every dependency. A build job, with a read-only
   token and no environment, secret or cache, now checks out the tag (by its full ref,
   `refs/tags/<tag>`, since checkout takes a branch over a tag with the same short name, and
-  fails unless the tag is still on the commit release-please released: tags are not protected),
+  fails unless the tag is still on the commit release-please released, a second guard besides
+  the tag ruleset below),
   installs with the frozen lockfile, typechecks, tests, builds, runs `pack:check`, packs with
   `npm pack` what `npm publish` would publish, checks the tarball's name against the tag and
   keeps it 30 days as an artifact (the `npm` environment's approval can wait). The publish job,
@@ -113,6 +117,12 @@ for headers in every shape `Headers` takes (the two bullets after _Header values
   `FLASHPI_TEST_API_KEY` and `FLASHPI_DEMO_ISSUER_ID` are organization variables and secrets of
   `flashpi1`, shared with flashpi-python, not repository ones as the docs said. Rotate or change
   them in the organization: a repository copy would shadow them in this repository only.
+- **GitHub settings** (owner, 2026-11-13). The `npm` environment now deploys only from `main`:
+  it took any branch, and npm's trusted publisher checks the workflow and the environment, not
+  the branch, so a changed `release.yml` on another branch could have asked for it (still behind
+  the owner's approval). A ruleset, "Release tags cannot move or be deleted", keeps every `v*`
+  tag from being moved or deleted, here and in flashpi-python; release-please still creates
+  them.
 
 ## 2026-11-13: release PRs run CI by themselves
 
