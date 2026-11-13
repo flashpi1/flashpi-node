@@ -24,6 +24,25 @@ export function forwardsOptionalConfig(): Flashpi {
   return new Flashpi({ apiKey: env.FLASHPI_API_KEY, baseUrl: env.FLASHPI_BASE_URL })
 }
 
+/** Request headers in every shape `new Headers()` takes, with and without the DOM library. */
+export async function sendsHeaders(
+  flashpi: Flashpi,
+  init: RequestInit['headers'],
+  request: Request,
+): Promise<void> {
+  const pairs: [string, string][] = [['x-trace', 'trace-1']]
+  const readonlyPairs: readonly (readonly [string, string])[] = pairs
+  await flashpi.status.get({ headers: { 'x-trace': 'trace-1' } })
+  await flashpi.status.get({ headers: new Headers({ 'x-trace': 'trace-1' }) })
+  await flashpi.status.get({ headers: request.headers })
+  await flashpi.status.get({ headers: [['x-trace', 'trace-1']] })
+  await flashpi.status.get({ headers: readonlyPairs })
+  await flashpi.status.get({ headers: new Map(pairs) })
+  await flashpi.status.get({ headers: init })
+  const options: RequestOptions = { headers: init }
+  console.log(options)
+}
+
 export async function receives(request: Request): Promise<Response> {
   const options: WebhookVerifyOptions = { tolerance: undefined }
   const event = await unwrapWebhook(

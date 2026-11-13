@@ -94,27 +94,83 @@ export function headerValue(label: string, value: string): string {
 }
 
 /**
- * The headers a caller adds (`headers`, `defaultHeaders`), checked: every value with
- * {@link headerValue}, and none of the headers fetch handles itself (Content-Length,
- * Transfer-Encoding, Keep-Alive, Upgrade, Expect: a TypeError). Returns a copy with the values
- * as they are sent, so requests are built from what was checked even if the caller changes the
- * object afterwards.
+ * Headers in any shape `new Headers()` takes: a plain object, a `Headers` instance, or
+ * `[name, value]` pairs (an array, a `Map` or another iterable). The last member is what
+ * `new Headers()` takes in the consumer's own types (the DOM library, @types/node, Bun's or
+ * Workers' types), so a value typed as that `HeadersInit` fits too, with or without the DOM
+ * library.
  */
-export function checkHeaders(
-  label: string,
-  headers: Record<string, string> | undefined,
-): Record<string, string> {
-  const checked: [string, string][] = []
-  for (const [name, value] of Object.entries(headers ?? {})) {
-    const handledByFetch = FETCH_HEADERS.get(name.toLowerCase())
-    if (handledByFetch !== undefined) {
-      throw new TypeError(`${label} cannot carry ${JSON.stringify(name)}: ${handledByFetch}`)
-    }
-    checked.push([
-      name,
-      headerValue(`The value of the ${JSON.stringify(name)} header in ${label}`, value),
-    ])
+export type HeadersLike =
+  | Record<string, string>
+  | Headers
+  | Iterable<readonly [string, string]>
+  | NonNullable<ConstructorParameters<typeof Headers>[0]>
+
+/**
+ * The headers a caller adds (`headers`, `defaultHeaders`), in any shape `Headers` takes, checked:
+ * every value with {@link headerValue}, and none of the headers fetch handles itself
+ * (Content-Length, Transfer-Encoding, Keep-Alive, Upgrade, Expect: a TypeError). Read once, into
+ * a new `Headers` with the values as they are sent, so requests are built from what was checked
+ * even if the caller changes the original afterwards.
+ *
+ * Pairs follow `Headers`: a name given twice gets both values, joined with ", ". A plain object
+ * keeps the last of two names that differ only in case, as the SDK always did.
+ */
+export function checkHeaders(label: string, headers: HeadersLike | undefined): Headers {
+  const checked = new Headers()
+  // JavaScript callers may pass null, which the SDK always read as no headers.
+  const raw: unknown = headers ?? {}
+  if (Object(raw) !== raw) {
+    throw new TypeError(`${label} must be an object, a Headers instance or [name, value] pairs`)
   }
-  // fromEntries defines every name as its own property, even "__proto__".
-  return Object.fromEntries(checked)
+  // An iterable is pairs, as Headers reads it (a Headers instance, an array, a Map).
+  if (typeof (raw as Partial<Iterable<unknown>>)[Symbol.iterator] === 'function') {
+    for (const entry of raw as Iterable<unknown>) {
+      const [name, value] = pairOf(label, entry)
+      checked.append(name, checkedValue(label, name, value))
+    }
+  } else {
+    for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+      checked.set(checkedName(label, name), checkedValue(label, name, value))
+    }
+  }
+  return checked
+}
+
+/**
+ * Whether `value` is an iterator (it has `next()`, like a generator or `map.entries()`), which
+ * gives its items only once: headers kept for later requests are kept as the copy read from it.
+ */
+export function isIterator(value: unknown): boolean {
+  return typeof (value as { next?: unknown } | null | undefined)?.next === 'function'
+}
+
+/** One `[name, value]` pair of `headers` given as pairs: exactly two items, as Headers wants. */
+function pairOf(label: string, entry: unknown): [string, unknown] {
+  const items =
+    Object(entry) === entry &&
+    typeof (entry as Partial<Iterable<unknown>>)[Symbol.iterator] === 'function'
+      ? Array.from(entry as Iterable<unknown>)
+      : []
+  if (items.length !== 2) {
+    // Never the entry: it may hold a value (Node.js's Headers quotes one that is text).
+    throw new TypeError(`${label} has an entry that is not a [name, value] pair`)
+  }
+  const name: unknown = items[0]
+  // Headers cannot turn a symbol into text either.
+  if (typeof name === 'symbol') throw new TypeError(`${label} has a header name that is a symbol`)
+  return [checkedName(label, String(name)), items[1]]
+}
+
+/** `name`, unless it is one of the headers fetch handles itself (a TypeError). */
+function checkedName(label: string, name: string): string {
+  const handledByFetch = FETCH_HEADERS.get(name.toLowerCase())
+  if (handledByFetch !== undefined) {
+    throw new TypeError(`${label} cannot carry ${JSON.stringify(name)}: ${handledByFetch}`)
+  }
+  return name
+}
+
+function checkedValue(label: string, name: string, value: unknown): string {
+  return headerValue(`The value of the ${JSON.stringify(name)} header in ${label}`, value as string)
 }

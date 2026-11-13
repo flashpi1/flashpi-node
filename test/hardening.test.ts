@@ -1,14 +1,15 @@
 /**
  * Regression tests for the hardening after the Python SDK's reviews (2026-11-13): defects the two
- * reviews of flashpi-python found that the Node.js SDK had too.
+ * reviews of flashpi-python found that the Node.js SDK had too, and the owner's answers to it
+ * (headers in every shape `new Headers()` takes).
  */
 import { createServer, type IncomingMessage, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { ConnectionError, Flashpi, FlashpiError } from '../src'
-import { TEST_KEY, client, json, mockFetch, problem } from './support'
+import { ConnectionError, Flashpi, FlashpiError, type RequestOptions } from '../src'
+import { ID, TEST_KEY, client, json, mockFetch, page, problem } from './support'
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -482,5 +483,204 @@ describe('header changes while a retry waits', () => {
     expect(sent).toHaveLength(2)
     expect(sent[1]?.headers.get('x-team')).toBe('billing')
     expect(sent[1]?.headers.get('x-trace')).toBe('trace-1')
+  })
+})
+
+/** Every shape `new Headers()` takes, each holding the same `entries`. */
+function shapesOf(entries: [string, string][]): Record<string, () => HeadersLike> {
+  return {
+    'a Headers instance': () => new Headers(entries),
+    'an array of pairs': () => entries.map(([name, value]) => [name, value] as const),
+    'a Map': () => new Map(entries),
+    'a generator': () =>
+      (function* () {
+        yield* entries
+      })(),
+  }
+}
+
+type HeadersLike = NonNullable<RequestOptions['headers']>
+
+describe('request headers in every shape Headers takes', () => {
+  for (const [shape, headers] of Object.entries(
+    shapesOf([
+      ['X-Trace', 'trace-1'],
+      ['x-team', ' billing\t'],
+    ]),
+  )) {
+    it(`sends ${shape} like a plain object`, async () => {
+      const { flashpi, sent } = client([json({})])
+      await flashpi.status.get({ headers: headers() })
+      expect([...(sent[0]?.headers ?? [])].filter(([name]) => name.startsWith('x-'))).toEqual([
+        ['x-team', 'billing'],
+        ['x-trace', 'trace-1'],
+      ])
+    })
+
+    it(`checks every value of ${shape}, without showing it`, async () => {
+      const { flashpi, sent } = client([])
+      const value = valueWith('\x01')
+      const bad = shapesOf([
+        ['x-team', 'billing'],
+        ['X-Trace', value],
+      ])[shape]
+      const error = await rejectionOf(flashpi.status.get({ headers: bad?.() }))
+      expect(error).toBeInstanceOf(TypeError)
+      expect((error as TypeError).message).toMatch(
+        /^The value of the "x-trace" header in headers has a line break or another control character$/i,
+      )
+      expectNothingOf(value, error)
+      expect(sent).toHaveLength(0)
+    })
+
+    it(`refuses the headers fetch handles itself in ${shape}`, async () => {
+      const { flashpi, sent } = client([])
+      const refused = shapesOf([['Content-Length', '999']])[shape]
+      await expect(
+        flashpi.invoices.create({ total: 1 } as never, { headers: refused?.() }),
+      ).rejects.toThrow(/^headers cannot carry "content-length": fetch sets it from the body$/i)
+      expect(sent).toHaveLength(0)
+    })
+  }
+
+  it('joins a name given twice in pairs with ", ", as Headers does', async () => {
+    const { flashpi, sent } = client([json({})], { defaultHeaders: { 'x-tag': 'default' } })
+    await flashpi.status.get({
+      headers: [
+        ['X-Tag', 'a'],
+        ['x-tag', ' b '],
+      ],
+    })
+    // The request's pairs replace the client's value for that name, as a plain object does.
+    expect(sent[0]?.headers.get('x-tag')).toBe('a, b')
+    expect(sent[0]?.headers.has('0')).toBe(false)
+  })
+
+  it('refuses an entry that is not a [name, value] pair, without showing it', async () => {
+    const { flashpi, sent } = client([])
+    const value = valueWith('-')
+    for (const entry of [['x-a', value, 'more'], ['x-a'], value, { 0: 'x-a', 1: value }]) {
+      const error = await rejectionOf(
+        flashpi.status.get({ headers: [entry] as unknown as HeadersLike }),
+      )
+      expect(error).toBeInstanceOf(TypeError)
+      expect((error as TypeError).message).toBe(
+        'headers has an entry that is not a [name, value] pair',
+      )
+      expectNothingOf(value, error)
+    }
+    await expect(
+      flashpi.status.get({ headers: [[Symbol('x-a'), 'value']] as unknown as HeadersLike }),
+    ).rejects.toThrow(new TypeError('headers has a header name that is a symbol'))
+    expect(sent).toHaveLength(0)
+  })
+
+  it('refuses headers that are not an object, a Headers instance or pairs', async () => {
+    const { flashpi, sent } = client([json({})])
+    for (const headers of ['x-a: 1', 42, true]) {
+      await expect(
+        flashpi.status.get({ headers: headers as unknown as HeadersLike }),
+      ).rejects.toThrow(
+        new TypeError('headers must be an object, a Headers instance or [name, value] pairs'),
+      )
+    }
+    expect(sent).toHaveLength(0)
+    // null is still no headers, as it always was.
+    await flashpi.status.get({ headers: null as unknown as HeadersLike })
+    expect(sent).toHaveLength(1)
+  })
+
+  it('sends every attempt with the headers read before the first one', async () => {
+    const instance = new Headers({ 'x-trace': 'trace-1' })
+    const pairs: [string, string][] = [['x-span', 'span-1']]
+    const call = (headers: HeadersLike, change: () => void) => {
+      const { flashpi, sent } = client(
+        [
+          () => {
+            // The caller changes the headers while the SDK waits to retry.
+            change()
+            return problem(503, 'service_unavailable', {}, { 'retry-after': '0' })
+          },
+          json({}),
+        ],
+        { maxRetries: 1 },
+      )
+      return { done: flashpi.status.get({ headers }), sent }
+    }
+    const first = call(instance, () => {
+      instance.set('x-trace', valueWith('\x01'))
+      instance.set('x-added', 'later')
+    })
+    await first.done
+    expect(first.sent[1]?.headers.get('x-trace')).toBe('trace-1')
+    expect(first.sent[1]?.headers.has('x-added')).toBe(false)
+    const second = call(pairs, () => {
+      pairs.push(['x-added', 'later'])
+    })
+    await second.done
+    expect(second.sent[1]?.headers.get('x-span')).toBe('span-1')
+    expect(second.sent[1]?.headers.has('x-added')).toBe(false)
+  })
+
+  it('takes the Idempotency-Key of any shape, after the idempotencyKey option', async () => {
+    const { flashpi, sent } = client([json({}), json({})])
+    const headers = shapesOf([
+      ['Idempotency-Key', ' order-42 '],
+      ['x-trace', 'trace-1'],
+    ])
+    await flashpi.invoices.create({} as never, { headers: headers['a generator']?.() })
+    await flashpi.invoices.create({} as never, {
+      headers: headers['a Headers instance']?.(),
+      idempotencyKey: 'order-43',
+    })
+    expect(sent.map((request) => request.headers.get('idempotency-key'))).toEqual([
+      'order-42',
+      'order-43',
+    ])
+    expect(sent.map((request) => request.headers.get('x-trace'))).toEqual(['trace-1', 'trace-1'])
+  })
+
+  it('layers them like an object: over defaultHeaders and language, never the key', async () => {
+    const { flashpi, sent } = client([json({})], {
+      defaultHeaders: { 'x-team': 'billing', 'x-keep': 'yes' },
+    })
+    await flashpi.status.get({
+      language: 'en',
+      headers: new Headers({
+        'X-Team': 'sales',
+        'Accept-Language': 'es',
+        Authorization: 'Bearer other',
+      }),
+    })
+    const headers = sent[0]?.headers
+    expect(headers?.get('x-team')).toBe('sales')
+    expect(headers?.get('x-keep')).toBe('yes')
+    expect(headers?.get('accept-language')).toBe('es')
+    expect(headers?.get('authorization')).toBe(`Bearer ${TEST_KEY}`)
+  })
+
+  it('sends them with the read of a document an earlier attempt created', async () => {
+    const { flashpi, sent } = client([
+      problem(503, 'service_unavailable', {}, { 'retry-after': '0' }),
+      problem(422, 'idempotency_key_reused', { documentId: ID }),
+      json({ id: ID }),
+    ])
+    const headers = shapesOf([['x-trace', 'trace-1']])['a generator']?.()
+    await flashpi.invoices.create({} as never, { headers })
+    expect(sent.map((request) => request.headers.get('x-trace'))).toEqual([
+      'trace-1',
+      'trace-1',
+      'trace-1',
+    ])
+    expect(sent[2]?.method).toBe('GET')
+  })
+
+  it('sends them with every page of a list, even from a generator', async () => {
+    const { flashpi, sent } = client([page([{ id: 'a' }], 'c1'), page([{ id: 'b' }])])
+    const headers = shapesOf([['x-trace', 'trace-1']])['a generator']?.()
+    const ids: string[] = []
+    for await (const document of flashpi.documents.list({}, { headers })) ids.push(document.id)
+    expect(ids).toEqual(['a', 'b'])
+    expect(sent.map((request) => request.headers.get('x-trace'))).toEqual(['trace-1', 'trace-1'])
   })
 })

@@ -1,7 +1,14 @@
 import { VERSION } from '../version'
 import type { WithResponse } from './api-promise'
 import { APIError, ConnectionError, FlashpiError, TimeoutError } from './errors'
-import { MAX_TIMEOUT_MS, checkHeaders, headerValue, validRetries, validTimeout } from './validate'
+import {
+  type HeadersLike,
+  MAX_TIMEOUT_MS,
+  checkHeaders,
+  headerValue,
+  validRetries,
+  validTimeout,
+} from './validate'
 
 /** Languages the API writes its messages in. Error codes are the same in both. */
 export type Language = 'en' | 'es'
@@ -32,15 +39,20 @@ export interface RequestOptions {
    */
   correlationId?: string | undefined
   /**
-   * Extra headers for this request. Not Content-Length, Transfer-Encoding, Keep-Alive, Upgrade
-   * or Expect, which fetch handles itself. Such a header, or a value with a line break, another
-   * control character (other than a tab), a lone surrogate or a character the runtime's
-   * `Headers` refuses (above U+00FF on Node.js and Bun), throws a TypeError before anything is
-   * sent, as do such `idempotencyKey`, `correlationId` and `language` values; the message never
-   * shows the value. The spaces, tabs and line breaks around a value are trimmed, as `Headers`
-   * does.
+   * Extra headers for this request, in any shape `new Headers()` takes: a plain object, a
+   * `Headers` instance or `[name, value]` pairs (an array, a `Map`). A name given twice in pairs
+   * gets both values, joined with ", ", as `Headers` does. They are read once, before the first
+   * attempt: every retry sends what was read, even if you change them meanwhile.
+   *
+   * Not Content-Length, Transfer-Encoding, Keep-Alive, Upgrade or Expect, which fetch handles
+   * itself. Such a header, or a value with a line break, another control character (other than
+   * a tab), a lone surrogate or a character the runtime's `Headers` refuses (above U+00FF on
+   * Node.js and Bun), throws a TypeError before anything is sent, as do such `idempotencyKey`,
+   * `correlationId` and `language` values; the message never shows the value. The spaces, tabs
+   * and line breaks around a value are trimmed, as `Headers` does. An `Idempotency-Key` here is
+   * used when `idempotencyKey` is not given.
    */
-  headers?: Record<string, string> | undefined
+  headers?: HeadersLike | undefined
 }
 
 /** The client settings the HTTP layer needs. */
@@ -51,7 +63,8 @@ export interface HttpConfig {
   maxRetries: number
   language: Language | undefined
   fetch: Fetch
-  defaultHeaders: Record<string, string>
+  /** The client's `defaultHeaders`, checked again before each request. */
+  defaultHeaders: HeadersLike | undefined
 }
 
 export type QueryValue = string | number | boolean | null | undefined
@@ -104,7 +117,9 @@ export class HttpClient {
     // sending, as a network error that would be retried. Every attempt is built from these
     // copies, so a header the caller changes while a retry waits is never sent unchecked.
     const defaultHeaders = checkHeaders('defaultHeaders', this.#config.defaultHeaders)
-    const options = checkedOptions(spec.options ?? {})
+    // Read once, whatever their shape: an iterator gives its pairs only once.
+    const requestHeaders = checkHeaders('headers', spec.options?.headers)
+    const options = checkedOptions(spec.options ?? {}, requestHeaders)
     const maxRetries =
       options.maxRetries === undefined
         ? this.#config.maxRetries
@@ -117,7 +132,7 @@ export class HttpClient {
     const url = this.#url(spec.path, spec.query)
     const idempotencyKey =
       spec.method === 'POST'
-        ? (options.idempotencyKey ?? idempotencyKeyIn(spec.options?.headers) ?? crypto.randomUUID())
+        ? (options.idempotencyKey ?? requestHeaders.get('idempotency-key') ?? crypto.randomUUID())
         : undefined
     // Serialized once: every attempt sends the same bytes under the same Idempotency-Key, even
     // when the caller changes the object afterwards.
@@ -133,7 +148,7 @@ export class HttpClient {
     for (let attempt = 0; ; attempt++) {
       const init: RequestInit = {
         method: spec.method,
-        headers: this.#headers(spec, options, defaultHeaders, idempotencyKey),
+        headers: this.#headers(spec, options, defaultHeaders, requestHeaders, idempotencyKey),
       }
       if (spec.multipart) init.body = spec.multipart()
       else if (json !== undefined) init.body = json
@@ -290,7 +305,8 @@ export class HttpClient {
   #headers<T>(
     spec: RequestSpec<T>,
     options: RequestOptions,
-    defaultHeaders: Record<string, string>,
+    defaultHeaders: Headers,
+    requestHeaders: Headers,
     idempotencyKey: string | undefined,
   ): Headers {
     const headers = new Headers({
@@ -299,9 +315,9 @@ export class HttpClient {
     })
     // Lowest priority first: client language, client headers, request language, request headers.
     if (this.#config.language) headers.set('accept-language', this.#config.language)
-    for (const [name, value] of Object.entries(defaultHeaders)) headers.set(name, value)
+    overlay(headers, defaultHeaders)
     if (options.language) headers.set('accept-language', options.language)
-    for (const [name, value] of Object.entries(options.headers ?? {})) headers.set(name, value)
+    overlay(headers, requestHeaders)
     if (options.correlationId !== undefined) headers.set('x-correlation-id', options.correlationId)
     if (idempotencyKey !== undefined) headers.set('idempotency-key', idempotencyKey)
     if (!spec.multipart && spec.body !== undefined) headers.set('content-type', 'application/json')
@@ -313,13 +329,12 @@ export class HttpClient {
 }
 
 /**
- * The caller's options with the values that become headers checked ({@link checkHeaders}) and
- * trimmed as `Headers` trims them ({@link headerValue}), so every attempt, every error and a
- * recovered read use the same ones.
+ * The caller's options with the values that become headers checked and trimmed as `Headers`
+ * trims them ({@link headerValue}), and `headers` replaced by their checked copy
+ * ({@link checkHeaders}), so every attempt, every error and a recovered read use the same ones.
  */
-function checkedOptions(options: RequestOptions): RequestOptions {
-  const checked: RequestOptions = { ...options }
-  if (options.headers !== undefined) checked.headers = checkHeaders('headers', options.headers)
+function checkedOptions(options: RequestOptions, headers: Headers): RequestOptions {
+  const checked: RequestOptions = { ...options, headers }
   if (options.idempotencyKey !== undefined) {
     checked.idempotencyKey = headerValue('idempotencyKey', options.idempotencyKey)
   }
@@ -332,15 +347,14 @@ function checkedOptions(options: RequestOptions): RequestOptions {
   return checked
 }
 
-/**
- * The Idempotency-Key in a request's `headers`, checked ({@link headerValue}). Read through
- * `Headers`, which also reads the shapes JavaScript callers may pass instead of an object (a
- * `Headers` instance, pairs), whose entries {@link checkHeaders} does not see.
- */
-function idempotencyKeyIn(headers: RequestOptions['headers']): string | undefined {
-  const value = new Headers(headers).get('idempotency-key')
-  if (value === null) return undefined
-  return headerValue('The value of the "Idempotency-Key" header in headers', value)
+/** Sets the headers of `layer` on `headers`, replacing the values `headers` had for their names. */
+function overlay(headers: Headers, layer: Headers): void {
+  layer.forEach((_value, name) => {
+    headers.delete(name)
+  })
+  layer.forEach((value, name) => {
+    headers.append(name, value)
+  })
 }
 
 function readData(
