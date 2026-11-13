@@ -1,7 +1,7 @@
 import { VERSION } from '../version'
 import type { WithResponse } from './api-promise'
 import { APIError, ConnectionError, FlashpiError, TimeoutError } from './errors'
-import { MAX_TIMEOUT_MS, validRetries, validTimeout } from './validate'
+import { MAX_TIMEOUT_MS, checkHeaders, headerValue, validRetries, validTimeout } from './validate'
 
 /** Languages the API writes its messages in. Error codes are the same in both. */
 export type Language = 'en' | 'es'
@@ -31,7 +31,12 @@ export interface RequestOptions {
    * back and logged by Flashpi.
    */
   correlationId?: string | undefined
-  /** Extra headers for this request. */
+  /**
+   * Extra headers for this request. Not Content-Length or Transfer-Encoding, which fetch sets
+   * from the body. A value with a line break or another control character (other than a tab)
+   * throws a TypeError before anything is sent, as do `idempotencyKey`, `correlationId` and
+   * `language`; the spaces, tabs and line breaks around a value are trimmed, as `Headers` does.
+   */
   headers?: Record<string, string> | undefined
 }
 
@@ -92,7 +97,10 @@ export class HttpClient {
   }
 
   async request<T>(spec: RequestSpec<T>): Promise<WithResponse<T>> {
-    const options = spec.options ?? {}
+    // Before anything is sent: fetch would refuse some bad header values only while sending,
+    // as a network error that would be retried.
+    checkHeaders('defaultHeaders', this.#config.defaultHeaders)
+    const options = checkedOptions(spec.options ?? {})
     const maxRetries =
       options.maxRetries === undefined
         ? this.#config.maxRetries
@@ -294,6 +302,26 @@ export class HttpClient {
     headers.set('authorization', `Bearer ${this.#config.apiKey}`)
     return headers
   }
+}
+
+/**
+ * The caller's options with the values that become headers checked ({@link checkHeaders}) and
+ * trimmed as `Headers` trims them ({@link headerValue}), so every attempt, every error and a
+ * recovered read use the same ones.
+ */
+function checkedOptions(options: RequestOptions): RequestOptions {
+  checkHeaders('headers', options.headers)
+  const checked: RequestOptions = { ...options }
+  if (options.idempotencyKey !== undefined) {
+    checked.idempotencyKey = headerValue('idempotencyKey', options.idempotencyKey)
+  }
+  if (options.correlationId !== undefined) {
+    checked.correlationId = headerValue('correlationId', options.correlationId)
+  }
+  if (options.language !== undefined) {
+    checked.language = headerValue('language', options.language) as Language
+  }
+  return checked
 }
 
 function readData(

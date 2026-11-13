@@ -1,6 +1,6 @@
 import { FlashpiError } from './core/errors'
 import { type Fetch, HttpClient, type Language } from './core/http'
-import { validRetries, validTimeout } from './core/validate'
+import { checkHeaders, headerValue, validRetries, validTimeout } from './core/validate'
 import { Documents, DocumentIssuer } from './resources/documents'
 import type {
   CreditNotes,
@@ -37,7 +37,12 @@ export interface ClientOptions {
   baseUrl?: string | undefined
   /** A `fetch` implementation, for proxies or tests (default: the runtime's `fetch`). */
   fetch?: Fetch | undefined
-  /** Headers sent with every request (not `Idempotency-Key`: that one is per request). */
+  /**
+   * Headers sent with every request (not `Idempotency-Key`: that one is per request). Not
+   * Content-Length or Transfer-Encoding either, which fetch sets from the body. A value with a
+   * line break or another control character (other than a tab) throws a TypeError when the
+   * client is created.
+   */
   defaultHeaders?: Record<string, string> | undefined
 }
 
@@ -101,6 +106,13 @@ export class Flashpi {
     const apiKey = (options.apiKey ?? fromEnv?.value)?.trim()
     this.environment = environmentOf(apiKey, fromEnv?.denied)
     const defaultHeaders = options.defaultHeaders ?? {}
+    // Checked here, so a bad value fails when the client is created (and again before each
+    // request, in case the object changes later).
+    checkHeaders('defaultHeaders', defaultHeaders)
+    const language =
+      options.language === undefined
+        ? undefined
+        : (headerValue('language', options.language) as Language)
     if (new Headers(defaultHeaders).has('idempotency-key')) {
       throw new FlashpiError(
         'defaultHeaders cannot carry an Idempotency-Key: it must be unique per operation. Pass { idempotencyKey } to each create() instead',
@@ -115,7 +127,7 @@ export class Flashpi {
       baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
       timeout: validTimeout('timeout', options.timeout ?? DEFAULT_TIMEOUT_MS),
       maxRetries: validRetries('maxRetries', options.maxRetries ?? DEFAULT_MAX_RETRIES),
-      language: options.language,
+      language,
       fetch: fetchImplementation,
       defaultHeaders,
     })
