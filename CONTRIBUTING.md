@@ -82,15 +82,21 @@ GitHub before it publishes.
 ### The first release
 
 npm can only trust a publisher for a package that already exists, so 0.1.0 is published by
-hand. When its release PR is merged, reject the publish job's approval, then a maintainer of
-the `@flashpi` npm organization publishes from a clean checkout of the `v0.1.0` tag:
+hand. When its release PR is merged, reject the publish job's approval, then a member of the
+`flashpi` npm organization, with two-factor authentication on, publishes from a clean checkout
+of the `v0.1.0` tag (npm asks for the second factor):
 
 ```bash
 pnpm install --frozen-lockfile && pnpm build && pnpm pack:check
 npm publish --access public
 ```
 
-Then, on npmjs.com, add the trusted publisher (GitHub Actions, organization `flashpi1`,
-repository `flashpi-node`, workflow `release.yml`, environment `npm`), allow it to publish, and
-require two-factor authentication with tokens disallowed. Later versions are published by the
-workflow only.
+Right after, in the package's settings on npmjs.com, set **Publishing access** to "Require
+two-factor authentication and disallow tokens".
+
+The trusted publisher goes in **just before the next release PR is merged**: npm drops a
+configuration that has not published within 48 hours. Add it under the package's settings
+(GitHub Actions, organization `flashpi1`, repository `flashpi-node`, workflow `release.yml`,
+environment `npm`) and tick **npm publish** in its allowed actions, since new configurations
+only allow staged publishing by default. From then on, versions are published by the workflow
+only.
