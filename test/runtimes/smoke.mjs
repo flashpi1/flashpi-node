@@ -120,6 +120,32 @@ export async function runSmoke(sdk) {
     replies.length = 0
   }
 
+  // Every shape Headers takes (an object, a Headers instance, pairs) is checked and sent.
+  let pairsError
+  try {
+    await flashpi.status.get({ headers: [['x-a', `${secret}\x01`]] })
+  } catch (caught) {
+    pairsError = caught
+  }
+  check(pairsError instanceof TypeError, 'a control character in pairs throws a TypeError')
+  check(!`${pairsError.message}${pairsError.stack}`.includes(secret), 'its error hides the value')
+  const withDefaults = new Flashpi(KEY, {
+    fetch,
+    maxRetries: 0,
+    defaultHeaders: new Headers({ 'x-team': 'billing' }),
+  })
+  replies.push(json({ status: 'operational' }), json({ status: 'operational' }))
+  await withDefaults.status.get({ headers: new Headers({ 'x-trace': 'trace-1' }) })
+  await flashpi.status.get({
+    headers: [
+      ['x-tag', 'a'],
+      ['x-tag', 'b'],
+    ],
+  })
+  check(sent.at(-2).headers.get('x-team') === 'billing', 'a Headers instance in defaultHeaders')
+  check(sent.at(-2).headers.get('x-trace') === 'trace-1', 'a Headers instance in headers')
+  check(sent.at(-1).headers.get('x-tag') === 'a, b', 'pairs in headers, joined as Headers does')
+
   const event = await unwrapWebhook(
     new TextEncoder().encode(WEBHOOK.body),
     new Headers(WEBHOOK.headers),
