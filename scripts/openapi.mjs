@@ -6,14 +6,17 @@
 //   pnpm openapi:check     fail when src/generated/openapi.ts is not what the copy generates (CI)
 //
 // The source is the public document the docs publish (https://flashpi.com.ec/docs/openapi.json),
-// because the API repository is private. Override it with FLASHPI_OPENAPI_URL or point
-// FLASHPI_OPENAPI_FILE at a local file (for example a flashpi-api checkout).
+// because the API repository is private. Override it with FLASHPI_OPENAPI_URL (https:// only,
+// and so are the redirects it follows) or point FLASHPI_OPENAPI_FILE at a local file (for
+// example a flashpi-api checkout).
 import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import openapiTS, { astToString } from 'openapi-typescript'
+
+import { downloadText } from './download.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const contractPath = path.join(root, 'openapi/openapi.json')
@@ -41,9 +44,7 @@ async function generate(contractJson) {
 
 async function download() {
   if (sourceFile) return readFile(sourceFile, 'utf8')
-  const response = await fetch(sourceUrl, { headers: { accept: 'application/json' } })
-  if (!response.ok) throw new Error(`GET ${sourceUrl} answered ${response.status}`)
-  return response.text()
+  return downloadText(sourceUrl, { headers: { accept: 'application/json' } })
 }
 
 const mode = process.argv[2] ?? 'generate'
