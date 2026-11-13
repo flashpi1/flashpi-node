@@ -96,8 +96,9 @@ export function headerValue(label: string, value: string): string {
 /**
  * The headers a caller adds (`headers`, `defaultHeaders`), checked: every value with
  * {@link headerValue}, and none of the headers fetch handles itself (Content-Length,
- * Transfer-Encoding, Keep-Alive, Upgrade, Expect: a TypeError). Returns a copy with the values as they are sent, so requests are built
- * from what was checked even if the caller changes the object afterwards.
+ * Transfer-Encoding, Keep-Alive, Upgrade, Expect: a TypeError). Returns a copy with the values
+ * as they are sent, so requests are built from what was checked even if the caller changes the
+ * object afterwards.
  */
 export function checkHeaders(
   label: string,

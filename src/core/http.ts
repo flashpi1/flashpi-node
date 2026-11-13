@@ -258,12 +258,8 @@ export class HttpClient {
         // allow): it would refuse every retry too.
         const refusal = refusalOf(error)
         if (refusal !== undefined) {
-          throw new FlashpiError(
-            `fetch refused to send ${init.method ?? 'GET'} ${url}: ${refusal}`,
-            {
-              cause: error,
-            },
-          )
+          const message = `fetch refused to send ${init.method ?? 'GET'} ${url}: ${refusal}`
+          throw new FlashpiError(message, { cause: error })
         }
         throw new ConnectionError(`${init.method ?? 'GET'} ${url} failed: ${describe(error)}`, {
           cause: error,
