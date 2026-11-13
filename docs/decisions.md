@@ -45,18 +45,22 @@ on Node.js, Bun, Deno and Workers.
   Latin-1 values (0x80 to 0xFF) are still sent. A lone surrogate is refused on every runtime, as
   in Python: Workers sent it as ill-formed UTF-8. As in Python, the trimmed Idempotency-Key, the
   one sent, is the one on errors, and a request `language` of spaces only keeps the client's.
-- **Publishing.** The Release workflow's publish job held `id-token: write`, which npm's
-  trusted publishing turns into a publish token, while it ran `pnpm install`, the typecheck,
-  the tests and the build: code of the repository and of every dependency. A build job, with a
-  read-only token and no environment, secret or cache, now checks out the tag, installs with the
-  frozen lockfile, typechecks, tests, builds, runs `pack:check`, packs with `npm pack` what
-  `npm publish` would publish, checks the tarball's name against the tag and keeps it 30 days as
-  an artifact (the `npm` environment's approval can wait). The publish job, in the `npm`
-  environment with `id-token: write` only, checks out and installs nothing: it sets up the
-  Node.js of `.nvmrc` (as the build job reports it), checks that npm is 11.5.1 or later and runs
-  `npm publish <tarball> --access public`. The trusted publisher (workflow `release.yml`,
-  environment `npm`) does not change, and trusted publishing generates the provenance statement
-  by itself, so there is no `--provenance`.
+- **Publishing.** The Release workflow's publish job held `id-token: write`, which npm's trusted
+  publishing turns into a publish token, while it ran `pnpm install`, the typecheck, the tests
+  and the build: code of the repository and of every dependency. A build job, with a read-only
+  token and no environment, secret or cache, now checks out the tag (by its full ref,
+  `refs/tags/<tag>`, since checkout takes a branch over a tag with the same short name, and
+  fails unless the tag is still on the commit release-please released: tags are not protected),
+  installs with the frozen lockfile, typechecks, tests, builds, runs `pack:check`, packs with
+  `npm pack` what `npm publish` would publish, checks the tarball's name against the tag and
+  keeps it 30 days as an artifact (the `npm` environment's approval can wait). The publish job,
+  in the `npm` environment with `id-token: write` only, checks out and installs nothing: it sets
+  up the Node.js of `.nvmrc` (as the build job reports it), checks that npm is 11.5.1 or later
+  and runs `npm publish <tarball> --access public --provenance`. The trusted publisher (workflow
+  `release.yml`, environment `npm`) does not change. Trusted publishing turns provenance on by
+  itself only when npm's lookup of the package's visibility succeeds, and npm 11 publishes
+  without it, quietly, when that lookup fails; with `--provenance`, a release without a
+  provenance statement fails instead.
 - **The contract download.** `pnpm openapi:sync` downloaded `FLASHPI_OPENAPI_URL` whatever its
   scheme, and fetch followed redirects to plain HTTP by itself. `scripts/download.mjs` now
   refuses a URL that is not `https://` and follows redirects by hand, at most five, only to

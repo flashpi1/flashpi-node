@@ -12,11 +12,13 @@ name: Release
 #
 # npm trusted publishing (OIDC): no npm token is stored anywhere. npmjs.com trusts this
 # workflow file (release.yml) of flashpi1/flashpi-node in the `npm` environment, and the
-# package gets a provenance statement, which trusted publishing generates by itself. The
-# trusted publisher can only be configured once the package exists, so 0.1.0 is published by
-# hand first (see CONTRIBUTING.md). The build job installs, checks and packs the release with
-# a read-only token and no secret; the publish job, the only one with `id-token: write`, runs
-# no code of this repository or of its dependencies: it only publishes that tarball.
+# package gets a provenance statement. It is asked for with --provenance: npm only turns it on
+# by itself when a lookup of the package's visibility succeeds, and publishes without it,
+# quietly, when that lookup fails. The trusted publisher can only be configured once the
+# package exists, so 0.1.0 is published by hand first (see CONTRIBUTING.md). The build job
+# installs, checks and packs the release with a read-only token and no secret; the publish job,
+# the only one with `id-token: write`, runs no code of this repository or of its dependencies:
+# it only publishes that tarball.
 on:
   push:
     branches: [main]
@@ -37,6 +39,8 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      # The commit the release was tagged at.
+      sha: ${{ steps.release.outputs.sha }}
       prs_created: ${{ steps.release.outputs.prs_created }}
       pr: ${{ steps.release.outputs.pr }}
     steps:
@@ -88,14 +92,25 @@ jobs:
     outputs:
       node-version: ${{ steps.node.outputs.version }}
     steps:
+      # The tag by its full ref: checkout takes a branch over a tag with the same short name.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: refs/tags/${{ needs.release-please.outputs.tag_name }}
           persist-credentials: false
+      # Tags are not protected: anyone with write access could move this one after the release.
+      - name: Check the tag is still on the released commit
+        env:
+          SHA: ${{ needs.release-please.outputs.sha }}
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$SHA" ]; then
+            echo "::error::The tag does not point at the commit release-please released (${SHA})"
+            exit 1
+          fi
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       # No cache in a release build: nothing restored from a cache may reach the release.
-      # setup-node caches on its own when package.json names a package manager, so turn that
-      # off (pnpm/action-setup does not cache unless asked).
+      # setup-node caches by itself only for npm projects (this one names pnpm) and
+      # pnpm/action-setup only when asked; package-manager-cache: false keeps it off whatever
+      # package.json says.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
@@ -176,4 +191,4 @@ jobs:
             echo "::error::The artifact has no regular file flashpi-node-${TAG#v}.tgz"
             exit 1
           fi
-          npm publish "$tarball" --access public
+          npm publish "$tarball" --access public --provenance

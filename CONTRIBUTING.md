@@ -91,11 +91,13 @@ each job needs. To rotate the key, generate a new one in the app's settings, upd
 organization secret (not a repository one: a repository copy would shadow it here only, and the
 other repository would break once the old key is deleted), then delete the old key.
 
-When a release is created, a build job checks out the tag, installs, typechecks, tests, builds
-and packs it with a read-only token and no secret, and hands the tarball over as an artifact
-(kept 30 days). The publish job, the only one with `id-token: write`, runs in the `npm`
-environment, which waits for a maintainer's approval in GitHub; it checks out and installs
-nothing, and publishes that tarball with `npm publish <tarball> --access public`.
+When a release is created, a build job checks out the tag (and fails unless it is still on the
+commit release-please released), installs, typechecks, tests, builds and packs it with a
+read-only token and no secret, and hands the tarball over as an artifact (kept 30 days). The
+publish job, the only one with `id-token: write`, runs in the `npm` environment, which waits for
+a maintainer's approval in GitHub; it checks out and installs nothing, and publishes that
+tarball with `npm publish <tarball> --access public --provenance` (npm would skip the provenance
+statement quietly when its lookup of the package's visibility fails).
 
 ### The first release
 
