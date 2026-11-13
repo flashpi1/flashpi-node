@@ -684,3 +684,62 @@ describe('request headers in every shape Headers takes', () => {
     expect(sent.map((request) => request.headers.get('x-trace'))).toEqual(['trace-1', 'trace-1'])
   })
 })
+
+describe('defaultHeaders in every shape Headers takes', () => {
+  for (const [shape, headers] of Object.entries(
+    shapesOf([
+      ['X-Team', 'billing'],
+      ['x-tag', 'a'],
+      ['x-tag', 'b'],
+    ]),
+  )) {
+    it(`sends ${shape} with every request`, async () => {
+      const { flashpi, sent } = client([json({}), json({})], { defaultHeaders: headers() })
+      await flashpi.status.get()
+      await flashpi.status.get()
+      for (const request of sent) {
+        expect(request.headers.get('x-team')).toBe('billing')
+        // A Map keeps one value per name; the other shapes keep both.
+        expect(request.headers.get('x-tag')).toBe(shape === 'a Map' ? 'b' : 'a, b')
+      }
+    })
+
+    it(`checks ${shape} when the client is created, without showing the value`, () => {
+      const value = valueWith('\x7f')
+      const { fetch, sent } = mockFetch()
+      const shapes = {
+        value: shapesOf([['X-Team', value]]),
+        name: shapesOf([['Transfer-Encoding', 'chunked']]),
+        key: shapesOf([['Idempotency-Key', 'always-the-same']]),
+      }
+      const errors = Object.values(shapes).map((bad) =>
+        thrownBy(() => new Flashpi(TEST_KEY, { fetch, defaultHeaders: bad[shape]?.() })),
+      )
+      expect((errors[0] as TypeError).message).toMatch(
+        /^The value of the "x-team" header in defaultHeaders has a line break or another control character$/i,
+      )
+      expectNothingOf(value, errors[0])
+      // A Headers instance gives its names in lowercase.
+      expect(errors[1]).toBeInstanceOf(TypeError)
+      expect((errors[1] as TypeError).message).toMatch(
+        /^defaultHeaders cannot carry "transfer-encoding": fetch sets it from the body$/i,
+      )
+      expect(errors[2]).toBeInstanceOf(FlashpiError)
+      expect((errors[2] as FlashpiError).message).toMatch(
+        /^defaultHeaders cannot carry an Idempotency-Key/,
+      )
+      expect(sent).toHaveLength(0)
+    })
+  }
+
+  it('reads a Headers instance again before each request, like a plain object', async () => {
+    const defaultHeaders = new Headers({ 'x-team': 'billing' })
+    const { flashpi, sent } = client([json({}), json({})], { defaultHeaders })
+    await flashpi.status.get()
+    defaultHeaders.set('x-team', 'sales')
+    await flashpi.status.get()
+    defaultHeaders.set('x-team', valueWith('\x01'))
+    await expect(flashpi.status.get()).rejects.toThrow(TypeError)
+    expect(sent.map((request) => request.headers.get('x-team'))).toEqual(['billing', 'sales'])
+  })
+})

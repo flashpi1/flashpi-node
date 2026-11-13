@@ -1,6 +1,13 @@
 import { FlashpiError } from './core/errors'
 import { type Fetch, HttpClient, type Language } from './core/http'
-import { checkHeaders, headerValue, validRetries, validTimeout } from './core/validate'
+import {
+  type HeadersLike,
+  checkHeaders,
+  headerValue,
+  isIterator,
+  validRetries,
+  validTimeout,
+} from './core/validate'
 import { Documents, DocumentIssuer } from './resources/documents'
 import type {
   CreditNotes,
@@ -38,13 +45,20 @@ export interface ClientOptions {
   /** A `fetch` implementation, for proxies or tests (default: the runtime's `fetch`). */
   fetch?: Fetch | undefined
   /**
-   * Headers sent with every request (not `Idempotency-Key`: that one is per request). Not
-   * Content-Length, Transfer-Encoding, Keep-Alive, Upgrade or Expect either, which fetch handles
-   * itself. Such a header, or a value with a line break, another control character (other than
-   * a tab), a lone surrogate or a character the runtime's `Headers` refuses (above U+00FF on
-   * Node.js and Bun), throws a TypeError when the client is created.
+   * Headers sent with every request, in any shape `new Headers()` takes: a plain object, a
+   * `Headers` instance or `[name, value]` pairs (an array, a `Map`). A name given twice in pairs
+   * gets both values, joined with ", ", as `Headers` does; a request's `headers` replace the
+   * values of the names they carry. They are read again before each request, so a change you
+   * make later is sent (and checked) from the next request on; an iterator such as a generator,
+   * which can be read only once, is read when the client is created.
+   *
+   * Not `Idempotency-Key`: that one is per request. Not Content-Length, Transfer-Encoding,
+   * Keep-Alive, Upgrade or Expect either, which fetch handles itself. Such a header, or a value
+   * with a line break, another control character (other than a tab), a lone surrogate or a
+   * character the runtime's `Headers` refuses (above U+00FF on Node.js and Bun), throws a
+   * TypeError when the client is created; the message never shows the value.
    */
-  defaultHeaders?: Record<string, string> | undefined
+  defaultHeaders?: HeadersLike | undefined
 }
 
 export const DEFAULT_BASE_URL = 'https://api.flashpi.com.ec'
@@ -106,15 +120,18 @@ export class Flashpi {
     const fromEnv = options.apiKey === undefined ? readEnv('FLASHPI_API_KEY') : undefined
     const apiKey = (options.apiKey ?? fromEnv?.value)?.trim()
     this.environment = environmentOf(apiKey, fromEnv?.denied)
-    const defaultHeaders = options.defaultHeaders ?? {}
     // Checked here, so a bad value fails when the client is created (and again before each
-    // request, in case the object changes later).
-    const checkedDefaultHeaders = checkHeaders('defaultHeaders', defaultHeaders)
+    // request, in case they change later).
+    const checkedDefaultHeaders = checkHeaders('defaultHeaders', options.defaultHeaders)
+    // An iterator (a generator, `map.entries()`) gives its pairs only once: keep what it gave.
+    const defaultHeaders = isIterator(options.defaultHeaders)
+      ? checkedDefaultHeaders
+      : options.defaultHeaders
     const language =
       options.language === undefined
         ? undefined
         : (headerValue('language', options.language) as Language)
-    if (new Headers(checkedDefaultHeaders).has('idempotency-key')) {
+    if (checkedDefaultHeaders.has('idempotency-key')) {
       throw new FlashpiError(
         'defaultHeaders cannot carry an Idempotency-Key: it must be unique per operation. Pass { idempotencyKey } to each create() instead',
       )

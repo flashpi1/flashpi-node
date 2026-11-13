@@ -43,6 +43,19 @@ export async function sendsHeaders(
   console.log(options)
 }
 
+/** defaultHeaders in the same shapes. */
+export function setsDefaultHeaders(init: RequestInit['headers'], request: Request): Flashpi[] {
+  const pairs: [string, string][] = [['x-team', 'billing']]
+  return [
+    new Flashpi({ defaultHeaders: { 'x-team': 'billing' } }),
+    new Flashpi({ defaultHeaders: new Headers(pairs) }),
+    new Flashpi({ defaultHeaders: request.headers }),
+    new Flashpi({ defaultHeaders: [['x-team', 'billing']] }),
+    new Flashpi({ defaultHeaders: new Map(pairs) }),
+    new Flashpi({ defaultHeaders: init }),
+  ]
+}
+
 export async function receives(request: Request): Promise<Response> {
   const options: WebhookVerifyOptions = { tolerance: undefined }
   const event = await unwrapWebhook(

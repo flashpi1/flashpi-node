@@ -63,7 +63,7 @@ export interface HttpConfig {
   maxRetries: number
   language: Language | undefined
   fetch: Fetch
-  /** The client's `defaultHeaders`, checked again before each request. */
+  /** The client's `defaultHeaders` (or the copy read from an iterator), checked per request. */
   defaultHeaders: HeadersLike | undefined
 }
 
