@@ -32,10 +32,11 @@ export interface RequestOptions {
    */
   correlationId?: string | undefined
   /**
-   * Extra headers for this request. Not Content-Length or Transfer-Encoding, which fetch sets
-   * from the body. A value with a line break or another control character (other than a tab)
-   * throws a TypeError before anything is sent, as do `idempotencyKey`, `correlationId` and
-   * `language`; the spaces, tabs and line breaks around a value are trimmed, as `Headers` does.
+   * Extra headers for this request. Not Content-Length, Transfer-Encoding, Keep-Alive, Upgrade
+   * or Expect, which fetch handles itself. Such a header, or a value with a line break or
+   * another control character (other than a tab), throws a TypeError before anything is sent,
+   * as do bad `idempotencyKey`, `correlationId` and `language` values; the spaces, tabs and line
+   * breaks around a value are trimmed, as `Headers` does.
    */
   headers?: Record<string, string> | undefined
 }
@@ -251,6 +252,17 @@ export class HttpClient {
       } catch (error) {
         if (userSignal?.aborted) throw userSignal.reason
         if (controller.signal.reason === timedOut) throw timedOut
+        // Node.js's fetch refused the request as invalid before sending it (a header it does not
+        // allow): it would refuse every retry too.
+        const refusal = refusalOf(error)
+        if (refusal !== undefined) {
+          throw new FlashpiError(
+            `fetch refused to send ${init.method ?? 'GET'} ${url}: ${refusal}`,
+            {
+              cause: error,
+            },
+          )
+        }
         throw new ConnectionError(`${init.method ?? 'GET'} ${url} failed: ${describe(error)}`, {
           cause: error,
         })
@@ -396,6 +408,20 @@ function sleep(milliseconds: number, signal: AbortSignal | undefined): Promise<v
     }, milliseconds)
     signal?.addEventListener('abort', onAbort, { once: true })
   })
+}
+
+/** The codes of the errors undici, Node.js's fetch, refuses an invalid request with. */
+const REFUSAL_CODES = new Set(['UND_ERR_INVALID_ARG', 'UND_ERR_NOT_SUPPORTED'])
+
+/**
+ * Why fetch refused to send a request, when it did: the message of undici's error, which names
+ * the header it refused, never its value (`invalid keep-alive header`). Otherwise `undefined`.
+ */
+function refusalOf(error: unknown): string | undefined {
+  const cause: unknown = error instanceof Error ? error.cause : undefined
+  if (!(cause instanceof Error)) return undefined
+  const code: unknown = (cause as { code?: unknown }).code
+  return typeof code === 'string' && REFUSAL_CODES.has(code) ? cause.message : undefined
 }
 
 function describe(error: unknown): string {

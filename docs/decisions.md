@@ -32,11 +32,17 @@ on Node.js, Bun, Deno and Workers.
   failed"), which the SDK retried as a `ConnectionError`, and Bun and Workers sent them.
   `Content-Length` and `Transfer-Encoding` in `headers` or `defaultHeaders` throw a `TypeError`
   too: fetch sets them from the body, and a wrong one failed (or hung until the timeout) only
-  while sending, as a retried network error. What `Headers` refused at once is still refused at
-  once with a `TypeError`: characters above U+00FF are left to it (Node.js and Bun refuse them;
-  Workers sends them as UTF-8), and Latin-1 values (0x80 to 0xFF) are still sent. As in Python,
-  the trimmed Idempotency-Key, the one sent, is the one on errors, and a request `language` of
-  spaces only keeps the client's.
+  while sending, as a retried network error. So do `Keep-Alive`, `Upgrade` and `Expect`:
+  Node.js's fetch refused them while sending, as a retried network error too, Bun hangs on
+  `Upgrade` and Workers on `Expect` (`Connection` is still passed to fetch: only Node.js 22
+  refuses some values, the case below). And when Node.js's fetch refuses a request as invalid
+  before sending it (undici's `UND_ERR_INVALID_ARG` or `UND_ERR_NOT_SUPPORTED`, such as
+  `Connection: upgrade` on Node.js 22), the SDK throws a `FlashpiError` that is not retried, as
+  Python does when httpx refuses one, with undici's reason, which names the header and never its
+  value. What `Headers` refused at once is still refused at once with a `TypeError`: characters
+  above U+00FF are left to it (Node.js and Bun refuse them; Workers sends them as UTF-8), and
+  Latin-1 values (0x80 to 0xFF) are still sent. As in Python, the trimmed Idempotency-Key, the
+  one sent, is the one on errors, and a request `language` of spaces only keeps the client's.
 - **Publishing.** The Release workflow's publish job held `id-token: write`, which npm's
   trusted publishing turns into a publish token, while it ran `pnpm install`, the typecheck,
   the tests and the build: code of the repository and of every dependency. A build job, with a

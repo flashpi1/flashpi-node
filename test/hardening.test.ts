@@ -7,7 +7,7 @@ import type { AddressInfo } from 'node:net'
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { Flashpi, FlashpiError } from '../src'
+import { ConnectionError, Flashpi, FlashpiError } from '../src'
 import { TEST_KEY, client, json, mockFetch, problem } from './support'
 
 afterEach(() => {
@@ -285,28 +285,85 @@ describe('header values the SDK builds', () => {
   })
 })
 
-describe('Content-Length and Transfer-Encoding', () => {
-  for (const name of [
-    'Content-Length',
-    'content-length',
-    'Transfer-Encoding',
-    'TRANSFER-ENCODING',
-  ]) {
+describe('headers fetch handles itself', () => {
+  const handled = {
+    'Content-Length': 'fetch sets it from the body',
+    'content-length': 'fetch sets it from the body',
+    'Transfer-Encoding': 'fetch sets it from the body',
+    'TRANSFER-ENCODING': 'fetch sets it from the body',
+    // Node.js's fetch refuses these while sending; Bun hangs on Upgrade and Workers on Expect.
+    'Keep-Alive': 'fetch manages it',
+    upgrade: 'fetch manages it',
+    Expect: 'fetch manages it',
+  }
+
+  for (const [name, why] of Object.entries(handled)) {
     it(`refuses ${name} in headers and in defaultHeaders`, async () => {
       const { flashpi, sent } = client([])
       const error = await rejectionOf(
         flashpi.invoices.create({ total: 1 } as never, { headers: { [name]: '999' } }),
       )
       expect(error).toBeInstanceOf(TypeError)
-      expect((error as TypeError).message).toBe(
-        `headers cannot carry "${name}": fetch sets it from the body`,
-      )
+      expect((error as TypeError).message).toBe(`headers cannot carry "${name}": ${why}`)
       expect(sent).toHaveLength(0)
       expect(() => new Flashpi(TEST_KEY, { defaultHeaders: { [name]: '999' } })).toThrow(
-        new TypeError(`defaultHeaders cannot carry "${name}": fetch sets it from the body`),
+        new TypeError(`defaultHeaders cannot carry "${name}": ${why}`),
       )
     })
   }
+
+  it('still sends Connection, which fetch sends when it is close or keep-alive', async () => {
+    const { flashpi, sent } = client([json({})])
+    await flashpi.status.get({ headers: { Connection: 'close' } })
+    expect(sent[0]?.headers.get('connection')).toBe('close')
+  })
+})
+
+/** The error Node.js's fetch (undici) rejects with when it refuses to send a request. */
+function fetchRefusal(reason: string, code: string): TypeError {
+  return new TypeError('fetch failed', { cause: Object.assign(new Error(reason), { code }) })
+}
+
+describe('a request fetch refuses to send', () => {
+  const refusals: [reason: string, code: string][] = [
+    ['invalid connection header', 'UND_ERR_INVALID_ARG'],
+    ['expect header not supported', 'UND_ERR_NOT_SUPPORTED'],
+  ]
+  for (const [reason, code] of refusals) {
+    it(`is not retried (${code})`, async () => {
+      const refusal = fetchRefusal(reason, code)
+      const { flashpi, sent } = client([refusal, json({})], { maxRetries: 2 })
+      const error = await rejectionOf(
+        flashpi.invoices.create({} as never, { idempotencyKey: 'order-42' }),
+      )
+      expect(sent).toHaveLength(1)
+      expect(error).toBeInstanceOf(FlashpiError)
+      expect(error).not.toBeInstanceOf(ConnectionError)
+      expect((error as FlashpiError).message).toBe(
+        `fetch refused to send POST https://api.flashpi.com.ec/v1/invoices: ${reason}`,
+      )
+      expect((error as FlashpiError).cause).toBe(refusal)
+      expect((error as FlashpiError).idempotencyKey).toBe('order-42')
+    })
+  }
+
+  it('still retries other network errors', async () => {
+    const reset = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }),
+    })
+    const { flashpi, sent } = client([reset, new TypeError('fetch failed'), json({})], {
+      maxRetries: 2,
+    })
+    vi.useFakeTimers()
+    try {
+      const call = flashpi.status.get()
+      await vi.runAllTimersAsync()
+      await call
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(sent).toHaveLength(3)
+  })
 })
 
 describe('header values from JavaScript callers', () => {

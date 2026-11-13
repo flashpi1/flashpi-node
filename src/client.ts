@@ -39,9 +39,9 @@ export interface ClientOptions {
   fetch?: Fetch | undefined
   /**
    * Headers sent with every request (not `Idempotency-Key`: that one is per request). Not
-   * Content-Length or Transfer-Encoding either, which fetch sets from the body. A value with a
-   * line break or another control character (other than a tab) throws a TypeError when the
-   * client is created.
+   * Content-Length, Transfer-Encoding, Keep-Alive, Upgrade or Expect either, which fetch handles
+   * itself. Such a header, or a value with a line break or another control character (other
+   * than a tab), throws a TypeError when the client is created.
    */
   defaultHeaders?: Record<string, string> | undefined
 }

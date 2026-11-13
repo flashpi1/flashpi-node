@@ -44,8 +44,19 @@ function trimHttpWhitespace(value: string): string {
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTER = /[\x00-\x08\x0a-\x1f\x7f]/
 
-/** Headers fetch sets from the body: another value would frame it wrongly. */
-const FRAMING_HEADERS = new Set(['content-length', 'transfer-encoding'])
+/**
+ * Headers fetch handles itself, with why a caller cannot set them. Content-Length and
+ * Transfer-Encoding frame the body: another value would frame it wrongly. Node.js's fetch
+ * refuses Keep-Alive, Upgrade and Expect while sending; Bun hangs on Upgrade and Workers on
+ * Expect.
+ */
+const FETCH_HEADERS = new Map([
+  ['content-length', 'fetch sets it from the body'],
+  ['transfer-encoding', 'fetch sets it from the body'],
+  ['keep-alive', 'fetch manages it'],
+  ['upgrade', 'fetch manages it'],
+  ['expect', 'fetch manages it'],
+])
 
 /**
  * A header value as `Headers` sends it: as text, without the spaces, tabs and line breaks around
@@ -68,8 +79,8 @@ export function headerValue(label: string, value: string): string {
 
 /**
  * The headers a caller adds (`headers`, `defaultHeaders`), checked: every value with
- * {@link headerValue}, and no Content-Length or Transfer-Encoding, which fetch sets from the
- * body (a TypeError). Returns a copy with the values as they are sent, so requests are built
+ * {@link headerValue}, and none of the headers fetch handles itself (Content-Length,
+ * Transfer-Encoding, Keep-Alive, Upgrade, Expect: a TypeError). Returns a copy with the values as they are sent, so requests are built
  * from what was checked even if the caller changes the object afterwards.
  */
 export function checkHeaders(
@@ -78,10 +89,9 @@ export function checkHeaders(
 ): Record<string, string> {
   const checked: [string, string][] = []
   for (const [name, value] of Object.entries(headers ?? {})) {
-    if (FRAMING_HEADERS.has(name.toLowerCase())) {
-      throw new TypeError(
-        `${label} cannot carry ${JSON.stringify(name)}: fetch sets it from the body`,
-      )
+    const handledByFetch = FETCH_HEADERS.get(name.toLowerCase())
+    if (handledByFetch !== undefined) {
+      throw new TypeError(`${label} cannot carry ${JSON.stringify(name)}: ${handledByFetch}`)
     }
     checked.push([
       name,
