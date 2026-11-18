@@ -492,7 +492,7 @@ export type paths = {
         };
         /**
          * Service status
-         * @description Public status of Flashpi. Placeholder: it reports `operational` while the API answers; component and SRI availability arrive with the status page.
+         * @description Public status of the Flashpi API: `operational` whenever the API answers. It reports no components and no SRI availability. Flashpi's status page, https://flashpi.com.ec/status, shows each component and the notices about incidents, maintenance and the SRI.
          */
         get: operations["statusGet"];
         put?: never;
@@ -2192,13 +2192,13 @@ export type components = {
              */
             name?: string;
         };
-        /** @description A payment. The payments must add up to the document total. */
+        /** @description A payment. The payments must add up to the document total; the last one may leave out `amount` to take the rest of the total. */
         DocumentPayment: {
             /**
-             * @description Amount paid with this method.
+             * @description Amount paid with this method. Only the last payment may leave it out: Flashpi gives it what the other payments leave of the total (the whole total when it is the only one). With several payments none can be zero (`zero_payment`), the computed one included.
              * @example 10.35
              */
-            amount: string;
+            amount?: string;
             /**
              * @description Payment method: `cash` (without the financial system), `debt_offset`, `debit_card`, `electronic_money`, `prepaid_card`, `credit_card`, `other_financial_system` (bank transfers, checks and other payments through the financial system) or `securities_endorsement`.
              * @example credit_card
@@ -2419,7 +2419,7 @@ export type components = {
          * @description Stable machine-readable reason. New codes may be added: treat an unknown one like `invalid_value`.
          * @enum {string}
          */
-        FieldErrorCode: "required" | "unknown_field" | "invalid_type" | "invalid_format" | "invalid_option" | "too_short" | "too_long" | "out_of_range" | "invalid_value" | "unsupported_character" | "not_found" | "invalid_decimal" | "invalid_identification" | "invalid_check_digit" | "final_consumer_not_allowed" | "not_in_force" | "too_many_additional_fields" | "reserved_name" | "amount_mismatch" | "future_date" | "date_too_early" | "date_too_late" | "discount_exceeds_amount" | "duplicate" | "vat_required" | "unsupported_tax" | "rate_mismatch" | "incompatible_issuer_profile" | "url_not_allowed" | "demo_issuer_test_only" | "demo_issuer_sequential_not_allowed" | "ruc_mismatch";
+        FieldErrorCode: "required" | "unknown_field" | "invalid_type" | "invalid_format" | "invalid_option" | "too_short" | "too_long" | "out_of_range" | "invalid_value" | "unsupported_character" | "not_found" | "invalid_decimal" | "invalid_identification" | "invalid_check_digit" | "final_consumer_not_allowed" | "not_in_force" | "too_many_additional_fields" | "reserved_name" | "amount_mismatch" | "zero_payment" | "future_date" | "date_too_early" | "date_too_late" | "discount_exceeds_amount" | "duplicate" | "vat_required" | "unsupported_tax" | "rate_mismatch" | "incompatible_issuer_profile" | "url_not_allowed" | "demo_issuer_test_only" | "demo_issuer_sequential_not_allowed" | "ruc_mismatch";
         /** @description A taxpayer (RUC) that issues documents. */
         Issuer: {
             branding: components["schemas"]["IssuerBranding"];
@@ -2820,7 +2820,7 @@ export type components = {
         };
         /** @description No options yet: send an empty object or no body. */
         SendDocumentEmail: Record<string, never>;
-        /** @description Public status of Flashpi. Placeholder until the status monitors exist. */
+        /** @description Public status of the Flashpi API. Components and SRI notices are on the status page, https://flashpi.com.ec/status. */
         Status: {
             /**
              * @description Overall status of Flashpi.
@@ -3476,10 +3476,10 @@ export type components = {
         /** @description A payment of the supporting document. */
         WithholdingPayment: {
             /**
-             * @description Amount.
+             * @description Amount. Only the last payment may leave it out: it takes what the other payments leave of the supporting document `total`. With several payments none can be zero (`zero_payment`).
              * @example 1150.00
              */
-            amount: string;
+            amount?: string;
             /**
              * @description Payment method (same values as `DocumentPayment.method`).
              * @example other_financial_system
@@ -3714,7 +3714,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3847,7 +3847,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -4470,7 +4470,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6179,7 +6179,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6337,7 +6337,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -7305,7 +7305,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ConflictError, type Flashpi } from '../src'
+import { ConflictError, type CreateInvoice, type Flashpi } from '../src'
 import { client, documentBody, json, page, problem, sentJson } from './support'
 
 const I = 'iss_1'
@@ -347,6 +347,30 @@ describe('issuing documents', () => {
     )
     await vi.advanceTimersByTimeAsync(20_000)
     expect(await settled).toMatchObject({ value: { status: 'authorized' } })
+  })
+
+  it('sends a last payment without amount, for Flashpi to give it the rest of the total', async () => {
+    const { flashpi, sent } = client([json(documentBody(D), 202)])
+    const body: CreateInvoice = {
+      issuerId: I,
+      establishment: '001',
+      emissionPoint: '001',
+      customer: { idType: 'final_consumer' },
+      items: [
+        {
+          code: 'P-001',
+          description: 'Test service',
+          quantity: '1',
+          unitPrice: '10.00',
+          taxes: [{ type: 'vat', rate: '15' }],
+        },
+      ],
+      payments: [{ method: 'credit_card', amount: '10.00' }, { method: 'cash' }],
+    }
+    await flashpi.invoices.create(body)
+    const { payments } = sentJson(sent[0]) as CreateInvoice
+    expect(payments).toEqual([{ method: 'credit_card', amount: '10.00' }, { method: 'cash' }])
+    expect(payments[1]).not.toHaveProperty('amount')
   })
 
   it('keeps the client timeout when not waiting', async () => {
