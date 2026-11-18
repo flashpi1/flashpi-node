@@ -11,12 +11,14 @@ import type {
   Certificate,
   ClientOptions,
   Document,
+  DocumentPayment,
   Event,
   FieldErrorCode,
   HeadersLike,
   Problem,
   RequestOptions,
   ThinEvent,
+  WithholdingPayment,
 } from '../src'
 
 describe('public types', () => {
@@ -26,6 +28,14 @@ describe('public types', () => {
     expectTypeOf<'a_code_added_later'>().toExtend<Code>()
     expectTypeOf<FieldErrorCode>().toExtend<Code>()
     expect(true).toBe(true)
+  })
+
+  it('lets a payment leave out its amount, and knows zero_payment', () => {
+    expectTypeOf<DocumentPayment['amount']>().toEqualTypeOf<string | undefined>()
+    expectTypeOf<WithholdingPayment['amount']>().toEqualTypeOf<string | undefined>()
+    expectTypeOf<{ method: 'cash' }>().toExtend<DocumentPayment>()
+    expectTypeOf<{ method: 'cash' }>().toExtend<WithholdingPayment>()
+    expectTypeOf<'zero_payment'>().toExtend<FieldErrorCode>()
   })
 
   it('types the documented problem extension members and allows others', () => {
