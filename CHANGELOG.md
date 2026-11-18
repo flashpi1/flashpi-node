@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/flashpi1/flashpi-node/compare/v0.2.0...v0.3.0) (2026-11-18)
+
+
+### Features
+
+* **types:** let the last payment leave out its amount ([be10221](https://github.com/flashpi1/flashpi-node/commit/be1022112269be88cec382db663dcbb3f4856b1a))
+
 ## [0.2.0](https://github.com/flashpi1/flashpi-node/compare/v0.1.0...v0.2.0) (2026-11-13)
 
 
