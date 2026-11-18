@@ -6,6 +6,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 
 import {
   APIError,
+  type CreateInvoice,
   Flashpi,
   FlashpiError,
   type ThinWebhookEvent,
@@ -56,6 +57,9 @@ export async function gettingStarted(): Promise<void> {
     options: { waitForAuthorization: true },
   })
   console.log(invoice.status, invoice.accessKey)
+
+  const restOfTheTotal: CreateInvoice['payments'] = [{ method: 'cash' }]
+  console.log(restOfTheTotal)
 
   const document = await flashpi.documents.get(invoice.id)
   console.log(document.number)
