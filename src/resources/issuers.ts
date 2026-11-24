@@ -22,7 +22,9 @@ import { certificateForm } from './uploads'
 
 /**
  * The issuers (RUCs) of the account, with their establishments, emission points and .p12
- * certificates. Needs an account-scoped API key with read_write access, also to read.
+ * certificates. Needs an account-scoped API key with read_write access, also to read. Once an
+ * issuer has live documents, a test key can no longer change it, its establishments or its
+ * emission points, nor renew its certificate (403 `live_key_required`): use a live key.
  */
 export class Issuers extends APIResource {
   /** Establishments of an issuer, with their emission points. */
@@ -172,7 +174,8 @@ export class Certificates extends APIResource {
    * Flashpi checks it in the background: the certificate starts `processing`, then becomes
    * `accepted` (event `certificate.verified`, or `certificate.pending` while its revocation
    * status cannot be checked) or `rejected` (no event: follow it with `get()` and read
-   * `rejection`).
+   * `rejection`). An accepted certificate may carry `warnings`: `ruc_mismatch` is a test
+   * certificate that is not for the issuer's RUC, which signs test documents only.
    */
   upload(
     issuerId: string,

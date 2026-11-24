@@ -101,7 +101,10 @@ export class AuthenticationError extends APIError {
   override readonly name: string = 'AuthenticationError'
 }
 
-/** 403: the key may not do this (read-only, another issuer, IP allowlist, suspended account). */
+/**
+ * 403: the key may not do this (read-only, another issuer, IP allowlist, suspended account, or a
+ * test key on an issuer that has live documents: `live_key_required`).
+ */
 export class PermissionDeniedError extends APIError {
   override readonly name: string = 'PermissionDeniedError'
 }
@@ -111,7 +114,10 @@ export class NotFoundError extends APIError {
   override readonly name: string = 'NotFoundError'
 }
 
-/** 409: the request conflicts with the current state (sequential already used, RIDE not ready, ...). */
+/**
+ * 409: the request conflicts with the current state (sequential already used, RIDE not ready,
+ * webhook endpoint limit reached, ...).
+ */
 export class ConflictError extends APIError {
   override readonly name: string = 'ConflictError'
 }
