@@ -81,6 +81,30 @@ describe('errors', () => {
     expect(apiError.headers.get('content-type')).toContain('problem+json')
   })
 
+  it('tells a test key to use a live key once the issuer has live documents', async () => {
+    const { flashpi, sent } = client([problem(403, 'live_key_required')])
+    const { error } = await settle(flashpi.issuers.update(ID, { tradeName: 'X' }))
+    expect(error).toBeInstanceOf(PermissionDeniedError)
+    expect(error).toMatchObject({ status: 403, code: 'live_key_required' })
+    expect(sent).toHaveLength(1)
+  })
+
+  it('reports the webhook endpoint limit as a ConflictError with the limit', async () => {
+    const { flashpi, sent } = client([
+      problem(409, 'webhook_endpoint_limit_reached', { limit: 20 }),
+    ])
+    const { error } = await settle(
+      flashpi.webhookEndpoints.create({
+        url: 'https://example.com/flashpi',
+        enabledEvents: ['invoice.authorized'],
+      }),
+    )
+    expect(error).toBeInstanceOf(ConflictError)
+    expect(error).toMatchObject({ status: 409, code: 'webhook_endpoint_limit_reached' })
+    expect((error as ConflictError).problem?.limit).toBe(20)
+    expect(sent).toHaveLength(1)
+  })
+
   it('handles an error body that is not Problem Details (a firewall or proxy answer)', async () => {
     const { flashpi } = client([
       new Response('<html><body>403 Forbidden</body></html>', {
@@ -202,6 +226,22 @@ describe('retries', () => {
     expect(rateLimit.retryAfter).toBe(40_000)
     expect(rateLimit.problem?.limit).toBe(50)
     expect(sent).toHaveLength(1)
+  })
+
+  it('does not wait out the hourly limit of webhook endpoint verifications', async () => {
+    const { flashpi, sent } = client([
+      problem(429, 'rate_limited', {}, { 'retry-after': '3600' }),
+      problem(429, 'rate_limited', {}, { 'retry-after': '1800' }),
+    ])
+    const verify = await settle(flashpi.webhookEndpoints.verify(ID))
+    const update = await settle(
+      flashpi.webhookEndpoints.update(ID, { url: 'https://example.com/flashpi-new' }),
+    )
+    expect(verify.error).toBeInstanceOf(RateLimitError)
+    expect((verify.error as RateLimitError).retryAfter).toBe(3600)
+    expect(update.error).toBeInstanceOf(RateLimitError)
+    expect((update.error as RateLimitError).retryAfter).toBe(1800)
+    expect(sent.map(({ method }) => method)).toEqual(['POST', 'PATCH'])
   })
 
   it('reads a Retry-After given as an HTTP date', async () => {
