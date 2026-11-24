@@ -136,7 +136,7 @@ export type paths = {
         };
         /**
          * Get the XML of a document
-         * @description The most advanced XML available: the authorized XML once the SRI authorized the document, else the signed XML, else the unsigned XML Flashpi built. The `Flashpi-Xml-Kind` header says which one (authorized, signed or unsigned). Any API key can read (read_only included); an issuer-scoped key only sees its issuer. Test keys see test documents and live keys live documents.
+         * @description The most advanced XML available: the authorized XML once the SRI authorized the document, else the signed XML, else the unsigned XML Flashpi built. A document of the shared demo issuer never gives out its signed XML: until the SRI authorizes it, the answer is its unsigned XML. The `Flashpi-Xml-Kind` header says which one (authorized, signed or unsigned). Any API key can read (read_only included); an issuer-scoped key only sees its issuer. Test keys see test documents and live keys live documents.
          */
         get: operations["documentsGetXml"];
         put?: never;
@@ -258,7 +258,7 @@ export type paths = {
         put?: never;
         /**
          * Complete an issuer onboarding
-         * @description Creates the issuer with the tax profile sent (the same fields as POST /v1/issuers; start from `prefill`), its establishment 001 at the head office and emission point 001; or, when the account already has the certificate's RUC (`existingIssuer`), adds the certificate to that issuer without changing it (the body may be `{}`). The certificate serves test and live documents and starts `processing`: retrieve it under the issuer. The tax profile is the customer's responsibility. Requires an account-scoped (global) API key with read_write access, of either mode: the certificate serves test and live documents.
+         * @description Creates the issuer with the tax profile sent (the same fields as POST /v1/issuers; start from `prefill`), its establishment 001 at the head office and emission point 001; or, when the account already has the certificate's RUC (`existingIssuer`), adds the certificate to that issuer without changing it (the body may be `{}`). The certificate serves test and live documents and starts `processing`: retrieve it under the issuer. The tax profile is the customer's responsibility. Audited as issuer.created (a new issuer), certificate.uploaded and issuer_onboarding.completed, with the API key as the actor. A test key (fp_test_) renews only an issuer without live documents (403 live_key_required otherwise). Requires an account-scoped (global) API key with read_write access, of either mode: the certificate serves test and live documents.
          */
         post: operations["issuerOnboardingsComplete"];
         delete?: never;
@@ -307,14 +307,14 @@ export type paths = {
         post?: never;
         /**
          * Delete an issuer
-         * @description Deletes the issuer with its establishments, emission points and issuer-scoped API keys. An issuer with documents or certificates cannot be deleted. Requires an account-scoped (global) API key with read_write access.
+         * @description Deletes the issuer with its establishments, emission points and issuer-scoped API keys. An issuer with documents or certificates cannot be deleted. A test key (fp_test_) may do it only while the issuer has no live documents; afterwards it needs a live key (403 live_key_required). Requires an account-scoped (global) API key with read_write access.
          */
         delete: operations["issuersDelete"];
         options?: never;
         head?: never;
         /**
          * Update an issuer
-         * @description Changes the fields sent; null clears an optional field. The RUC cannot change. Requires an account-scoped (global) API key with read_write access.
+         * @description Changes the fields sent; null clears an optional field. The RUC cannot change. A test key (fp_test_) may do it only while the issuer has no live documents; afterwards it needs a live key (403 live_key_required). Requires an account-scoped (global) API key with read_write access.
          */
         patch: operations["issuersUpdate"];
         trace?: never;
@@ -334,7 +334,7 @@ export type paths = {
         put?: never;
         /**
          * Upload an issuer's signing certificate
-         * @description Uploads the .p12 (PKCS#12) file and its password as multipart/form-data. Flashpi encrypts both at once and checks them asynchronously (password, signing key, validity, trusted Ecuadorian certification authority, revocation): the certificate starts `processing`, then becomes `accepted` or `rejected`; follow it with GET. The password is never stored in clear nor returned. Requires an account-scoped (global) API key with read_write access. Test keys manage test certificates and live keys live ones; a certificate of the issuer onboarding serves both modes (`allModes`) and both read it.
+         * @description Uploads the .p12 (PKCS#12) file and its password as multipart/form-data. Flashpi encrypts both at once and checks them asynchronously (password, signing key, validity, trusted Ecuadorian certification authority, revocation): the certificate starts `processing`, then becomes `accepted` or `rejected`; follow it with GET. The password is never stored in clear nor returned. The upload is audited (certificate.uploaded) with the API key as the actor. Requires an account-scoped (global) API key with read_write access. Test keys manage test certificates and live keys live ones; a certificate of the issuer onboarding serves both modes (`allModes`) and both read it.
          */
         post: operations["certificatesUpload"];
         delete?: never;
@@ -378,7 +378,7 @@ export type paths = {
         put?: never;
         /**
          * Create an establishment
-         * @description Requires an account-scoped (global) API key with read_write access.
+         * @description A test key (fp_test_) may do it only while the issuer has no live documents; afterwards it needs a live key (403 live_key_required). Requires an account-scoped (global) API key with read_write access.
          */
         post: operations["establishmentsCreate"];
         delete?: never;
@@ -403,14 +403,14 @@ export type paths = {
         post?: never;
         /**
          * Delete an establishment
-         * @description Deletes it with its emission points; refused when documents use it. Requires an account-scoped (global) API key with read_write access.
+         * @description Deletes it with its emission points; refused when documents use it. A test key (fp_test_) may do it only while the issuer has no live documents; afterwards it needs a live key (403 live_key_required). Requires an account-scoped (global) API key with read_write access.
          */
         delete: operations["establishmentsDelete"];
         options?: never;
         head?: never;
         /**
          * Update an establishment
-         * @description Changes the address. The code cannot change. Requires an account-scoped (global) API key with read_write access.
+         * @description Changes the address. The code cannot change. A test key (fp_test_) may do it only while the issuer has no live documents; afterwards it needs a live key (403 live_key_required). Requires an account-scoped (global) API key with read_write access.
          */
         patch: operations["establishmentsUpdate"];
         trace?: never;
@@ -430,7 +430,7 @@ export type paths = {
         put?: never;
         /**
          * Create an emission point
-         * @description Requires an account-scoped (global) API key with read_write access.
+         * @description A test key (fp_test_) may do it only while the issuer has no live documents; afterwards it needs a live key (403 live_key_required). Requires an account-scoped (global) API key with read_write access.
          */
         post: operations["emissionPointsCreate"];
         delete?: never;
@@ -455,7 +455,7 @@ export type paths = {
         post?: never;
         /**
          * Delete an emission point
-         * @description Refused when documents use it. Requires an account-scoped (global) API key with read_write access.
+         * @description Refused when documents use it. A test key (fp_test_) may do it only while the issuer has no live documents; afterwards it needs a live key (403 live_key_required). Requires an account-scoped (global) API key with read_write access.
          */
         delete: operations["emissionPointsDelete"];
         options?: never;
@@ -538,7 +538,7 @@ export type paths = {
         put?: never;
         /**
          * Create a webhook endpoint
-         * @description Registers a public HTTPS URL for the chosen event types. The endpoint starts `pending_verification`: Flashpi POSTs a signed `webhook_endpoint.verification` body with a `challenge`, and the endpoint must answer 2xx echoing it (`{"challenge": "..."}`, or the challenge as plain text) before it receives events. Read its signing secret with GET .../secret. Requires an account-scoped (global) API key with read_write access. Test keys manage the endpoints of test events and live keys those of live events.
+         * @description Registers a public HTTPS URL for the chosen event types. The endpoint starts `pending_verification`: Flashpi POSTs a signed `webhook_endpoint.verification` body with a `challenge`, and the endpoint must answer 2xx echoing it (`{"challenge": "..."}`, or the challenge as plain text) before it receives events. Read its signing secret with GET .../secret. Requires an account-scoped (global) API key with read_write access. Test keys manage the endpoints of test events and live keys those of live events. Changes are audited with the API key as the actor. Every owner of the account gets an email when a live endpoint is created or gets a new URL: its destination (scheme, host and port), the API key, when and from which IP address.
          */
         post: operations["webhookEndpointsCreate"];
         delete?: never;
@@ -570,7 +570,7 @@ export type paths = {
         head?: never;
         /**
          * Update a webhook endpoint
-         * @description Changes the fields sent. A new URL goes back to `pending_verification` and gets a new handshake; `disabled: true` stops deliveries (pending ones end) and `disabled: false` enables the endpoint again. Requires an account-scoped (global) API key with read_write access. Test keys manage the endpoints of test events and live keys those of live events.
+         * @description Changes the fields sent. A new URL goes back to `pending_verification` and gets a new handshake; `disabled: true` stops deliveries (pending ones end) and `disabled: false` enables the endpoint again. Requires an account-scoped (global) API key with read_write access. Test keys manage the endpoints of test events and live keys those of live events. Changes are audited with the API key as the actor. Every owner of the account gets an email when a live endpoint is created or gets a new URL: its destination (scheme, host and port), the API key, when and from which IP address.
          */
         patch: operations["webhookEndpointsUpdate"];
         trace?: never;
@@ -664,7 +664,7 @@ export type paths = {
         };
         /**
          * Get the signing secret of a webhook endpoint
-         * @description The whsec_ secret that signs the deliveries (Standard Webhooks, HMAC-SHA256). It is stored encrypted and only returned here. Requires an account-scoped (global) API key with read_write access. Test keys manage the endpoints of test events and live keys those of live events.
+         * @description The whsec_ secret that signs the deliveries (Standard Webhooks, HMAC-SHA256). It is stored encrypted and only returned here; reading it is audited. Requires an account-scoped (global) API key with read_write access. Test keys manage the endpoints of test events and live keys those of live events.
          */
         get: operations["webhookEndpointsSecret"];
         put?: never;
@@ -1375,6 +1375,8 @@ export type components = {
             validFrom: string | null;
             /** Format: date-time */
             validUntil: string | null;
+            /** @description Warnings about an accepted certificate (empty when there are none). A test certificate that is not for the issuer's RUC is accepted with `ruc_mismatch`. */
+            warnings: components["schemas"]["CertificateWarning"][];
         };
         /**
          * Certificate event
@@ -1431,6 +1433,17 @@ export type components = {
              */
             status: "good" | "pending" | "blocked" | "revoked";
         };
+        /** @description Something to fix about an accepted certificate that does not stop it signing. */
+        CertificateWarning: {
+            /**
+             * @description `ruc_mismatch`: a test certificate that is not for the issuer's RUC. It signs test documents only and does not count for live API keys; in live mode such a certificate is rejected (`rejection.code` `ruc_mismatch`).
+             * @example ruc_mismatch
+             * @enum {string}
+             */
+            code: "ruc_mismatch";
+            /** @example This certificate is not for the issuer's RUC (it must state the RUC, or, for a natural person, the cédula it starts with): it signs test documents only and does not count for live API keys. Upload a certificate of this RUC to sign live documents. */
+            message: string;
+        };
         /** @description The issuer (created, with establishment 001 and emission point 001, or the existing one for a renewal) and its new certificate, `processing` until Flashpi onboards it. */
         CompletedIssuerOnboarding: {
             certificate: components["schemas"]["Certificate"];
@@ -1460,7 +1473,7 @@ export type components = {
         /** @description A credit note (nota de crédito) that reduces the amount of a document, for example for returned goods. Flashpi computes the credited amount. */
         CreateCreditNote: {
             /**
-             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
              * @example {
              *       "Order": "PO-4812"
              *     }
@@ -1517,7 +1530,7 @@ export type components = {
         /** @description A debit note (nota de débito) that increases the amount of a document, for example for interest or fees. Flashpi computes the taxes and the total. */
         CreateDebitNote: {
             /**
-             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
              * @example {
              *       "Order": "PO-4812"
              *     }
@@ -1590,7 +1603,7 @@ export type components = {
         /** @description An invoice (factura). Send quantities, prices and tax rates; Flashpi computes the line subtotals, the taxes per rate, the tip and the total with the SRI rounding rules. */
         CreateInvoice: {
             /**
-             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
              * @example {
              *       "Order": "PO-4812"
              *     }
@@ -1682,7 +1695,7 @@ export type components = {
         /** @description A purchase settlement (liquidación de compra): the buyer documents a purchase from a supplier without a RUC or who cannot issue invoices. Lines take VAT only. */
         CreatePurchaseSettlement: {
             /**
-             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
              * @example {
              *       "Order": "PO-4812"
              *     }
@@ -1734,7 +1747,7 @@ export type components = {
         /** @description A waybill (guía de remisión) that supports the transport of goods. */
         CreateWaybill: {
             /**
-             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
              * @example {
              *       "Order": "PO-4812"
              *     }
@@ -1827,7 +1840,7 @@ export type components = {
         /** @description A withholding receipt (comprobante de retención). Flashpi computes every withheld amount and the total withheld. */
         CreateWithholding: {
             /**
-             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours.
+             * @description Additional information printed on the document (name → value, 1 to 300 characters each). A document carries at most 15 fields including the legends Flashpi adds (RUC Proveedor, and Gran Contribuyente for large taxpayers), so at most 13 or 14 of yours. Not accepted with the shared demo issuer (422 demo_issuer_free_text_not_allowed), whose documents carry only the legend "Aviso: DOCUMENTO DE PRUEBA SIN VALIDEZ TRIBUTARIA - SANDBOX FLASHPI".
              * @example {
              *       "Order": "PO-4812"
              *     }
@@ -1887,7 +1900,7 @@ export type components = {
              */
             amount: string;
             /**
-             * @description Reason.
+             * @description Reason. With the shared demo issuer at most 291 characters (422 demo_issuer_description_too_long): Flashpi starts it with "PRUEBA - ".
              * @example Late payment interest
              */
             description: string;
@@ -2078,14 +2091,14 @@ export type components = {
              * @example certificate_required
              * @enum {string}
              */
-            code: "certificate_required" | "certificate_expired" | "certificate_not_yet_valid" | "certificate_blocked" | "certificate_revoked" | "certificate_unusable" | "document_too_large" | "document_invalid" | "signing_failed" | "sri_unavailable" | "sri_authorization_timeout" | "sri_request_refused" | "sri_environment_mismatch";
+            code: "certificate_required" | "certificate_expired" | "certificate_not_yet_valid" | "certificate_blocked" | "certificate_revoked" | "certificate_unusable" | "certificate_ruc_mismatch" | "document_too_large" | "document_invalid" | "signing_failed" | "sri_unavailable" | "sri_authorization_timeout" | "sri_request_refused" | "sri_environment_mismatch" | "sri_authorization_mismatch";
             /** @example The issuer has no accepted signing certificate for this mode. Upload its .p12 certificate and issue the document again. */
             message: string;
         };
         /** @description A line of an invoice, credit note or purchase settlement. Flashpi computes its subtotal (quantity × unit price − discount, rounded to 2 decimals) and its taxes. */
         DocumentItem: {
             /**
-             * @description Up to 3 extra details printed with the line (name → value, 1 to 300 characters).
+             * @description Up to 3 extra details printed with the line (name → value, 1 to 300 characters). Not accepted with the shared demo issuer (422 demo_issuer_free_text_not_allowed).
              * @example {
              *       "Batch": "L-2026-10"
              *     }
@@ -2104,7 +2117,7 @@ export type components = {
              */
             code?: string;
             /**
-             * @description Description.
+             * @description Description. With the shared demo issuer at most 291 characters (422 demo_issuer_description_too_long): Flashpi starts it with "PRUEBA - ".
              * @example Ground coffee 500 g
              */
             description: string;
@@ -2353,7 +2366,7 @@ export type components = {
          * @description Stable machine-readable error code, the same in every language. Branch on it, never on `type`, `title` or `detail`. New codes may be added: handle an unknown one by its HTTP status.
          * @enum {string}
          */
-        ErrorCode: "bad_request" | "malformed_json" | "invalid_correlation_id" | "validation_failed" | "authentication_required" | "forbidden" | "not_found" | "method_not_allowed" | "not_acceptable" | "conflict" | "payload_too_large" | "unsupported_media_type" | "rate_limited" | "internal_error" | "service_unavailable" | "invalid_api_key" | "key_scope_mismatch" | "key_read_only" | "ip_not_allowed" | "invalid_idempotency_key" | "idempotency_key_reused" | "idempotency_key_in_progress" | "issuer_already_exists" | "establishment_already_exists" | "emission_point_already_exists" | "resource_in_use" | "issuer_onboarding_not_ready" | "issuer_onboarding_expired" | "issuer_onboarding_completed" | "issuer_onboarding_rejected" | "total_mismatch" | "sequential_already_used" | "sequentials_exhausted" | "document_schema_invalid" | "document_too_large" | "document_not_authorized" | "ride_not_available" | "email_recipient_missing" | "email_already_queued" | "email_resend_limit_reached" | "account_email_limit_reached" | "email_sending_paused" | "test_recipient_not_allowed" | "platform_email_limit_reached" | "webhook_endpoint_disabled" | "webhook_endpoint_already_verified" | "webhook_endpoint_not_verified" | "webhook_delivery_in_progress" | "sandbox_not_enabled" | "demo_issuer_quota_exceeded" | "demo_issuer_unavailable" | "account_suspended";
+        ErrorCode: "bad_request" | "malformed_json" | "invalid_correlation_id" | "validation_failed" | "authentication_required" | "forbidden" | "not_found" | "method_not_allowed" | "not_acceptable" | "conflict" | "payload_too_large" | "unsupported_media_type" | "rate_limited" | "internal_error" | "service_unavailable" | "invalid_api_key" | "key_scope_mismatch" | "key_read_only" | "ip_not_allowed" | "live_key_required" | "invalid_idempotency_key" | "idempotency_key_reused" | "idempotency_key_in_progress" | "issuer_already_exists" | "establishment_already_exists" | "emission_point_already_exists" | "resource_in_use" | "issuer_onboarding_not_ready" | "issuer_onboarding_expired" | "issuer_onboarding_completed" | "issuer_onboarding_rejected" | "total_mismatch" | "sequential_already_used" | "sequentials_exhausted" | "document_schema_invalid" | "document_too_large" | "document_not_authorized" | "ride_not_available" | "email_recipient_missing" | "email_already_queued" | "email_resend_limit_reached" | "account_email_limit_reached" | "email_sending_paused" | "test_recipient_not_allowed" | "platform_email_limit_reached" | "webhook_endpoint_disabled" | "webhook_endpoint_already_verified" | "webhook_endpoint_not_verified" | "webhook_delivery_in_progress" | "webhook_endpoint_limit_reached" | "sandbox_not_enabled" | "demo_issuer_quota_exceeded" | "demo_issuer_unavailable" | "account_suspended";
         /** @description An establishment of an issuer. */
         Establishment: {
             /**
@@ -2419,7 +2432,7 @@ export type components = {
          * @description Stable machine-readable reason. New codes may be added: treat an unknown one like `invalid_value`.
          * @enum {string}
          */
-        FieldErrorCode: "required" | "unknown_field" | "invalid_type" | "invalid_format" | "invalid_option" | "too_short" | "too_long" | "out_of_range" | "invalid_value" | "unsupported_character" | "not_found" | "invalid_decimal" | "invalid_identification" | "invalid_check_digit" | "final_consumer_not_allowed" | "not_in_force" | "too_many_additional_fields" | "reserved_name" | "amount_mismatch" | "zero_payment" | "future_date" | "date_too_early" | "date_too_late" | "discount_exceeds_amount" | "duplicate" | "vat_required" | "unsupported_tax" | "rate_mismatch" | "incompatible_issuer_profile" | "url_not_allowed" | "demo_issuer_test_only" | "demo_issuer_sequential_not_allowed" | "ruc_mismatch";
+        FieldErrorCode: "required" | "unknown_field" | "invalid_type" | "invalid_format" | "invalid_option" | "too_short" | "too_long" | "out_of_range" | "invalid_value" | "unsupported_character" | "not_found" | "invalid_decimal" | "invalid_identification" | "invalid_check_digit" | "final_consumer_not_allowed" | "not_in_force" | "too_many_additional_fields" | "reserved_name" | "amount_mismatch" | "zero_payment" | "future_date" | "date_too_early" | "date_too_late" | "discount_exceeds_amount" | "duplicate" | "vat_required" | "unsupported_tax" | "rate_mismatch" | "incompatible_issuer_profile" | "url_not_allowed" | "demo_issuer_test_only" | "demo_issuer_sequential_not_allowed" | "demo_issuer_free_text_not_allowed" | "demo_issuer_description_too_long" | "ruc_mismatch" | "certificate_ruc_missing";
         /** @description A taxpayer (RUC) that issues documents. */
         Issuer: {
             branding: components["schemas"]["IssuerBranding"];
@@ -2775,7 +2788,7 @@ export type components = {
              * @example /v1/invoices
              */
             instance: string;
-            /** @description The daily limit that was reached (`email_resend_limit_reached`, `account_email_limit_reached`, `demo_issuer_quota_exceeded`). */
+            /** @description The daily limit that was reached (`email_resend_limit_reached`, `account_email_limit_reached`, `demo_issuer_quota_exceeded`), or the most webhook endpoints an account may have in a mode (`webhook_endpoint_limit_reached`). */
             limit?: number;
             /**
              * @description Request ID (UUIDv7); include it when contacting support.
@@ -2999,7 +3012,7 @@ export type components = {
         /** @description Goods carried for a recipient. */
         WaybillItem: {
             /**
-             * @description Up to 3 extra details (name → value).
+             * @description Up to 3 extra details (name → value). Not accepted with the shared demo issuer (422 demo_issuer_free_text_not_allowed).
              * @example {
              *       "Batch": "L-2026-10"
              *     }
@@ -3018,7 +3031,7 @@ export type components = {
              */
             code?: string;
             /**
-             * @description Description.
+             * @description Description. With the shared demo issuer at most 291 characters (422 demo_issuer_description_too_long): Flashpi starts it with "PRUEBA - ".
              * @example Ground coffee 500 g
              */
             description: string;
@@ -3514,6 +3527,7 @@ export type CertificateEvent = components['schemas']['CertificateEvent'];
 export type CertificateList = components['schemas']['CertificateList'];
 export type CertificateRejection = components['schemas']['CertificateRejection'];
 export type CertificateRevocation = components['schemas']['CertificateRevocation'];
+export type CertificateWarning = components['schemas']['CertificateWarning'];
 export type CompletedIssuerOnboarding = components['schemas']['CompletedIssuerOnboarding'];
 export type CompleteIssuerOnboarding = components['schemas']['CompleteIssuerOnboarding'];
 export type CreateCreditNote = components['schemas']['CreateCreditNote'];
@@ -3617,7 +3631,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -3714,7 +3728,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only, demo_issuer_sequential_not_allowed, demo_issuer_free_text_not_allowed or demo_issuer_description_too_long with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3750,7 +3764,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -3847,7 +3861,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only, demo_issuer_sequential_not_allowed, demo_issuer_free_text_not_allowed or demo_issuer_description_too_long with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -4010,7 +4024,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -4373,7 +4387,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -4470,7 +4484,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only, demo_issuer_sequential_not_allowed, demo_issuer_free_text_not_allowed or demo_issuer_description_too_long with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -4506,7 +4520,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -4672,7 +4686,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -4720,7 +4734,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). live_key_required: the issuer has live documents, so a test key (fp_test_) cannot change it, its establishments or emission points, nor renew its certificate; use a live key (fp_live_). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4840,7 +4854,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -5020,7 +5034,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). live_key_required: the issuer has live documents, so a test key (fp_test_) cannot change it, its establishments or emission points, nor renew its certificate; use a live key (fp_live_). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5097,7 +5111,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). live_key_required: the issuer has live documents, so a test key (fp_test_) cannot change it, its establishments or emission points, nor renew its certificate; use a live key (fp_live_). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5219,7 +5233,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -5457,7 +5471,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -5503,7 +5517,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). live_key_required: the issuer has live documents, so a test key (fp_test_) cannot change it, its establishments or emission points, nor renew its certificate; use a live key (fp_live_). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5650,7 +5664,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). live_key_required: the issuer has live documents, so a test key (fp_test_) cannot change it, its establishments or emission points, nor renew its certificate; use a live key (fp_live_). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5728,7 +5742,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). live_key_required: the issuer has live documents, so a test key (fp_test_) cannot change it, its establishments or emission points, nor renew its certificate; use a live key (fp_live_). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5851,7 +5865,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -5898,7 +5912,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). live_key_required: the issuer has live documents, so a test key (fp_test_) cannot change it, its establishments or emission points, nor renew its certificate; use a live key (fp_live_). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6047,7 +6061,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). */
+            /** @description The API key cannot perform this operation: key_scope_mismatch, key_read_only or ip_not_allowed; or its account is suspended (account_suspended). live_key_required: the issuer has live documents, so a test key (fp_test_) cannot change it, its establishments or emission points, nor renew its certificate; use a live key (fp_live_). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6082,7 +6096,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -6179,7 +6193,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only, demo_issuer_sequential_not_allowed, demo_issuer_free_text_not_allowed or demo_issuer_description_too_long with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6240,7 +6254,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -6337,7 +6351,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only, demo_issuer_sequential_not_allowed, demo_issuer_free_text_not_allowed or demo_issuer_description_too_long with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6431,7 +6445,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -6484,7 +6498,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description idempotency_key_in_progress: a request with this Idempotency-Key is still running. */
+            /** @description webhook_endpoint_limit_reached: the account already has the most endpoints a mode may have (`limit`, 20 by default); delete one first. Or idempotency_key_in_progress: a request with this Idempotency-Key is still running. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6733,6 +6747,16 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            /** @description rate_limited: the endpoint started the most verifications an hour allows (10 by default: its creation, each new URL, each time it is enabled again and each POST .../verify); Retry-After says when the hour ends. */
+            429: {
+                headers: {
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     webhookEndpointsDeliveriesList: {
@@ -6872,7 +6896,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -6959,7 +6983,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -7122,7 +7146,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -7200,6 +7224,16 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            /** @description rate_limited: the endpoint started the most verifications an hour allows (10 by default: its creation, each new URL, each time it is enabled again and each POST .../verify); Retry-After says when the hour ends. */
+            429: {
+                headers: {
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     withholdingsCreate: {
@@ -7208,7 +7242,7 @@ export interface operations {
             header?: {
                 /** @description Language of error messages and of the localized texts of resources (SRI messages, failures, certificate rejections): Spanish when the entry with the highest q-value is `es` or `es-` plus a region (`es-EC`, `es-419`), English otherwise. Errors state it in Content-Language. */
                 "Accept-Language"?: components["parameters"]["AcceptLanguage"];
-                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
+                /** @description Makes the request safe to retry: 1 to 255 visible ASCII characters (a UUID works well), remembered for 24 hours per account and mode. A retry with the same key and the same request returns the first successful response again, with the header `Idempotent-Replayed: true`, to any key of the account and mode whose scope covers it: an issuer-scoped key gets 403 key_scope_mismatch for another issuer's document, as without the header. The same key with a different request gets 422 idempotency_key_reused; while the first request still runs, 409 idempotency_key_in_progress. A failed request does not keep its key. */
                 "Idempotency-Key"?: string;
                 /** @description Your own ID for the request (letters, digits and `-_.:/+=`), echoed back in the X-Correlation-Id response header and logged next to the request ID. An invalid value gets 400 invalid_correlation_id. */
                 "X-Correlation-Id"?: components["parameters"]["CorrelationId"];
@@ -7305,7 +7339,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only or demo_issuer_sequential_not_allowed with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
+            /** @description validation_failed (see errors; for example invalid_check_digit, final_consumer_not_allowed, not_in_force, unsupported_character, too_many_additional_fields, amount_mismatch, zero_payment, out_of_range for a sync wait above the maximum, demo_issuer_test_only, demo_issuer_sequential_not_allowed, demo_issuer_free_text_not_allowed or demo_issuer_description_too_long with the demo issuer), total_mismatch (expectedTotal differs from the computed total), document_too_large or document_schema_invalid. Or idempotency_key_reused: the Idempotency-Key was used with a different request. */
             422: {
                 headers: {
                     [name: string]: unknown;
