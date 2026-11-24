@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ConflictError, type CreateInvoice, type Flashpi } from '../src'
+import { type CertificateWarning, ConflictError, type CreateInvoice, type Flashpi } from '../src'
 import { client, documentBody, json, page, problem, sentJson } from './support'
 
 const I = 'iss_1'
@@ -433,6 +433,24 @@ describe('documents', () => {
     )
     expect(error).toBeInstanceOf(ConflictError)
     expect((error as ConflictError).problem?.rideStatus).toBe('pending')
+  })
+})
+
+describe('certificates', () => {
+  it('reads the warnings of an accepted certificate', async () => {
+    const warning: CertificateWarning = {
+      code: 'ruc_mismatch',
+      message: "This certificate is not for the issuer's RUC: it signs test documents only.",
+    }
+    const { flashpi } = client([
+      json({ id: C, status: 'accepted', usable: true, warnings: [warning] }),
+      json({ id: C, status: 'accepted', usable: true, warnings: [] }),
+    ])
+    const certificate = await flashpi.issuers.certificates.get(I, C)
+    expect(certificate.warnings).toEqual([warning])
+    expect(certificate.warnings.map(({ code }) => code)).toEqual(['ruc_mismatch'])
+    const clean = await flashpi.issuers.certificates.get(I, C)
+    expect(clean.warnings).toEqual([])
   })
 })
 

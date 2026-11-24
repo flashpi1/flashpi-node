@@ -7,11 +7,15 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 import type {
   AccountEmailSending,
   APIError,
+  ApiErrorCode,
   ApiFieldErrorCode,
   Certificate,
+  CertificateWarning,
   ClientOptions,
   Document,
+  DocumentFailure,
   DocumentPayment,
+  ErrorCode,
   Event,
   FieldErrorCode,
   HeadersLike,
@@ -36,6 +40,25 @@ describe('public types', () => {
     expectTypeOf<{ method: 'cash' }>().toExtend<DocumentPayment>()
     expectTypeOf<{ method: 'cash' }>().toExtend<WithholdingPayment>()
     expectTypeOf<'zero_payment'>().toExtend<FieldErrorCode>()
+  })
+
+  it('types the warnings of a certificate', () => {
+    expectTypeOf<Certificate['warnings']>().toEqualTypeOf<CertificateWarning[]>()
+    expectTypeOf<'ruc_mismatch'>().toExtend<CertificateWarning['code']>()
+    expectTypeOf<CertificateWarning['message']>().toEqualTypeOf<string>()
+  })
+
+  it('knows the error, field and failure codes the API added', () => {
+    expectTypeOf<'live_key_required' | 'webhook_endpoint_limit_reached'>().toExtend<ErrorCode>()
+    expectTypeOf<ErrorCode>().toExtend<ApiErrorCode>()
+    expectTypeOf<
+      | 'certificate_ruc_missing'
+      | 'demo_issuer_description_too_long'
+      | 'demo_issuer_free_text_not_allowed'
+    >().toExtend<FieldErrorCode>()
+    expectTypeOf<'certificate_ruc_mismatch' | 'sri_authorization_mismatch'>().toExtend<
+      DocumentFailure['code']
+    >()
   })
 
   it('types the documented problem extension members and allows others', () => {
