@@ -24,7 +24,9 @@ export class WebhookEndpoints extends APIResource {
 
   /**
    * Creates an endpoint. It stays `pending_verification` until it answers the activation
-   * challenge; read its secret with `getSecret()` first, then call `verify()` if needed.
+   * challenge; read its secret with `getSecret()` first, then call `verify()` if needed. An
+   * account has at most 20 endpoints per mode by default (409 `webhook_endpoint_limit_reached`,
+   * with the `limit`).
    */
   create(body: CreateWebhookEndpoint, options?: RequestOptions): APIPromise<WebhookEndpoint> {
     return this._post('/v1/webhook-endpoints', body, options)
@@ -38,7 +40,11 @@ export class WebhookEndpoints extends APIResource {
     return this._get(pathOf`/v1/webhook-endpoints/${endpointId}`, options)
   }
 
-  /** Updates the URL, events, payload mode, description or `disabled` (only the fields sent). */
+  /**
+   * Updates the URL, events, payload mode, description or `disabled` (only the fields sent). A
+   * new URL, or `disabled: false`, starts a new activation challenge, which counts toward the
+   * hourly limit of `verify()`.
+   */
   update(
     endpointId: string,
     body: UpdateWebhookEndpoint,
@@ -69,7 +75,12 @@ export class WebhookEndpoints extends APIResource {
     return this._post(pathOf`/v1/webhook-endpoints/${endpointId}/rotate-secret`, body, options)
   }
 
-  /** Sends the activation challenge (`webhook_endpoint.verification`) to the endpoint again. */
+  /**
+   * Sends the activation challenge (`webhook_endpoint.verification`) to the endpoint again. An
+   * endpoint gets at most 10 challenges an hour by default (its creation, each new URL, each time
+   * it is enabled again and each `verify()`); past that, a `RateLimitError` whose `retryAfter`
+   * says when the hour ends.
+   */
   verify(endpointId: string, options?: RequestOptions): APIPromise<WebhookEndpoint> {
     return this._post(pathOf`/v1/webhook-endpoints/${endpointId}/verify`, undefined, options)
   }

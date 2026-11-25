@@ -20,6 +20,7 @@ export type {
   Certificate,
   CertificateRejection,
   CertificateRevocation,
+  CertificateWarning,
   CompletedIssuerOnboarding,
   CompleteIssuerOnboarding,
   CreateCreditNote,
