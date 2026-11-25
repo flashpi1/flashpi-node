@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/flashpi1/flashpi-node/compare/v0.3.0...v0.3.1) (2026-11-25)
+
+
+### Bug fixes
+
+* **types:** export CertificateWarning ([3bcc2d3](https://github.com/flashpi1/flashpi-node/commit/3bcc2d3111a25038e09707e434c41a096e273c4b))
+* **types:** sync the API contract of 2026-11-24 ([cfffbe7](https://github.com/flashpi1/flashpi-node/commit/cfffbe7d5ceed5e0ec1e1fc314d8cb2eea0426bc))
+
 ## [0.3.0](https://github.com/flashpi1/flashpi-node/compare/v0.2.0...v0.3.0) (2026-11-18)
 
 
