@@ -15,6 +15,13 @@ updates:
       interval: weekly
     commit-message:
       prefix: chore
+    ignore:
+      # TypeScript 7 breaks openapi-typescript and typescript-eslint (docs/decisions.md).
+      - dependency-name: typescript
+        versions: ['>=7']
+      # Typed for the oldest supported Node.js (engines: >=22), so only 22.x updates.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     groups:
       dev-dependencies:
         dependency-type: development

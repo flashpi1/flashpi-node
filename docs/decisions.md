@@ -3,6 +3,22 @@
 Settled decisions about @flashpi/node, newest first. Each one was taken with the Flashpi
 product owner.
 
+## 2026-11-27: Dependabot keeps TypeScript 6 and @types/node 22
+
+Dependabot's development group (#21) bumped TypeScript to 7.0 and @types/node to 26, and its CI
+failed: TypeScript 7 no longer exposes the compiler API that openapi-typescript calls
+(`ts.factory` is undefined), so `openapi:check` stopped. The owner closed #21 and asked that
+Dependabot not open it again, so `.github/dependabot.yml` ignores:
+
+- **TypeScript 7 and later**, which keeps the TypeScript 6 of _Tooling_ (2026-11-12) until
+  openapi-typescript and typescript-eslint support it. Moving to 7 then means removing the rule.
+- **Major versions of @types/node**, so the SDK keeps the types of the oldest Node.js it
+  supports (`engines`: `>=22`) and cannot use an API newer runtimes add. Minor and patch
+  updates of 22.x still come. Raising `engines` means raising this too.
+
+The other updates of #21 (Vitest, @vitest/coverage-v8, ESLint, typescript-eslint) come back in
+Dependabot's next development group without these two.
+
 ## 2026-11-13: hardening after the Python SDK's reviews
 
 Two adversarial reviews of the Python SDK (flashpi-python) found five defects that this SDK had
